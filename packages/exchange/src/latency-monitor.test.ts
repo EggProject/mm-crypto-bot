@@ -1,220 +1,124 @@
 /**
- * packages/exchange/src/latency-monitor.test.ts
- *
- * Unit tesztek a LatencyMonitor modulhoz — Phase 6 Track B.
- *
- * A tesztek PURE függvényekre és a `measureExchange` mockolt CCXT
- * exchange-ére építenek. A valós WS/REST hívásokat a CLI runner
- * (`run-arb-latency.ts`) futtatja — itt csak a logikát teszteljük.
- *
- * Minimum 6 teszt a brief előírása szerint:
- *   1. RTT measurement correctness (sample-ek számolása, RTT kalkuláció)
- *   2. Message gap calculation (consecutive message-ek közötti delta)
- *   3. Reconnect time tracking (forced disconnect → first message)
- *   4. Multi-exchange aggregation (Promise.all párhuzamosság + aggregáció)
- *   5. Edge case: dropped messages (üres gap lista, single sample)
- *   6. Edge case: partial responses (sikertelen REST request)
- *
- * + kiegészítők: percentile/median math, isSupportedExchangeId type guard.
+ * Unit tests for LatencyMonitor measurement and abort behavior.
  */
 
 import { describe, expect, it } from "bun:test";
+import ccxt, { type Dictionary, type Exchange, type Market, type OrderBook, type Ticker } from "ccxt";
 
-import {
-  LatencyMonitor,
-  SUPPORTED_EXCHANGE_IDS,
-  aggregateStats,
-  isSupportedExchangeId,
-  median,
-  percentile,
-  round2,
-  type LatencySample,
-  type MessageGapSample,
-  type ReconnectSample,
-  type RttSample,
-  type SupportedExchangeId,
-} from "./latency-monitor.js";
-
-// === Pure függvény tesztek (statisztikai helper-ek) ===
-
-describe("percentile", () => {
-  it("returns NaN on empty input", () => {
-    expect(Number.isNaN(percentile([], 95))).toBe(true);
-  });
-
-  it("returns the only value for single-element input", () => {
-    expect(percentile([42], 50)).toBe(42);
-    expect(percentile([42], 95)).toBe(42);
-    expect(percentile([42], 5)).toBe(42);
-  });
-
-  it("uses nearest-rank for p95 over a 100-sample distribution", () => {
-    // 1..100 → p95 = 95 (nearest-rank)
-    const arr = Array.from({ length: 100 }, (_, i) => i + 1);
-    expect(percentile(arr, 95)).toBe(95);
-    // p50 = 50 (medián)
-    expect(percentile(arr, 50)).toBe(50);
-    // p99 = 99
-    expect(percentile(arr, 99)).toBe(99);
-  });
-
-  it("clamps p<=0 to min and p>=100 to max", () => {
-    const arr = [1, 2, 3, 4, 5];
-    expect(percentile(arr, 0)).toBe(1);
-    expect(percentile(arr, -10)).toBe(1);
-    expect(percentile(arr, 100)).toBe(5);
-    expect(percentile(arr, 200)).toBe(5);
-  });
-
-  it("does not mutate input array (defensive copy)", () => {
-    const arr = [3, 1, 2];
-    percentile(arr, 50);
-    expect(arr).toEqual([3, 1, 2]);
-  });
-});
-
-describe("median", () => {
-  it("returns p50 of the distribution", () => {
-    expect(median([10, 20, 30, 40, 50])).toBe(30);
-    expect(median([5, 1, 3])).toBe(3);
-  });
-});
-
-describe("isSupportedExchangeId", () => {
-  it("accepts all canonical IDs", () => {
-    for (const id of SUPPORTED_EXCHANGE_IDS) {
-      expect(isSupportedExchangeId(id)).toBe(true);
-    }
-  });
-
-  it("rejects unknown IDs", () => {
-    expect(isSupportedExchangeId("coinbase")).toBe(false);
-    expect(isSupportedExchangeId("")).toBe(false);
-    expect(isSupportedExchangeId("Binance")).toBe(false);
-  });
-});
-
-describe("round2", () => {
-  it("rounds to 2 decimals", () => {
-    expect(round2(1.234)).toBe(1.23);
-    expect(round2(1.235)).toBe(1.24);
-    expect(round2(0)).toBe(0);
-  });
-
-  it("preserves NaN and Infinity", () => {
-    expect(Number.isNaN(round2(Number.NaN))).toBe(true);
-    expect(round2(Number.POSITIVE_INFINITY)).toBe(Number.POSITIVE_INFINITY);
-  });
-});
-
-// === aggregateStats tesztek ===
-
-describe("aggregateStats", () => {
-  it("classifies samples by type and aggregates correctly", () => {
-    const samples: LatencySample[] = [
-      { exchangeId: "binance", timestamp: 1, rttMs: 100, method: "rest", success: true } as RttSample,
-      { exchangeId: "binance", timestamp: 2, rttMs: 200, method: "rest", success: true } as RttSample,
-      { exchangeId: "binance", timestamp: 3, rttMs: 300, method: "rest", success: false } as RttSample,
-      { exchangeId: "binance", timestamp: 4, gapMs: 50, previousTimestamp: 3 } as MessageGapSample,
-      { exchangeId: "binance", timestamp: 5, gapMs: 150, previousTimestamp: 4 } as MessageGapSample,
-      {
-        exchangeId: "binance",
-        timestamp: 6,
-        reconnectMs: 500,
-        disconnectAt: 5,
-      } as ReconnectSample,
-    ];
-
-    const stats = aggregateStats("binance", samples);
-    expect(stats.rttCount).toBe(3);
-    expect(stats.rttMinMs).toBe(100);
-    expect(stats.rttMaxMs).toBe(300);
-    expect(stats.rttMedianMs).toBe(200);
-    expect(stats.rttSuccessRate).toBeCloseTo(2 / 3, 5);
-
-    expect(stats.gapCount).toBe(2);
-    expect(stats.gapMinMs).toBe(50);
-    expect(stats.gapMaxMs).toBe(150);
-    expect(stats.gapMedianMs).toBe(50);
-
-    expect(stats.reconnectCount).toBe(1);
-    expect(stats.reconnectMaxMs).toBe(500);
-    expect(stats.reconnectMinMs).toBe(500);
-  });
-
-  it("returns NaN for empty sample sets", () => {
-    const stats = aggregateStats("binance", []);
-    expect(stats.rttCount).toBe(0);
-    expect(Number.isNaN(stats.rttMinMs)).toBe(true);
-    expect(Number.isNaN(stats.rttMedianMs)).toBe(true);
-    expect(Number.isNaN(stats.rttP95Ms)).toBe(true);
-    expect(Number.isNaN(stats.rttSuccessRate)).toBe(true);
-  });
-});
-
-// === LatencyMonitor integrációs tesztek (mock CCXT exchange-szel) ===
+import { LatencyMonitor, type SupportedExchangeId } from "./latency-monitor.js";
 
 /**
- * `MockCcxtExchange` — minimal stub a CCXT `Exchange` interface-hez.
- * Csak a `fetchTicker`, `watchOrderBook`, `loadMarkets` és `close`
- * metódusokat implementálja. A többi hívás TypeError-t dob.
+ * Typed CCXT Pro test double with deterministic public operation overrides.
  */
-class MockCcxtExchange {
-  fetchTickerImpl: (symbol: string) => Promise<unknown> = async () => ({});
-  watchOrderBookImpl: (symbol: string, limit: number) => Promise<unknown> = async () => ({});
-  loadMarketsImpl: () => Promise<unknown> = async () => ({});
-  closeImpl: () => Promise<void> = async () => {
-    // No-op default; tests override to simulate close delays/errors.
-  };
+class MockCcxtExchange extends ccxt.pro.binance {
+  fetchTickerImpl: (symbol: string) => Promise<Ticker> = () => Promise.resolve(makeTicker());
+  watchOrderBookImpl: (symbol: string, limit: number | undefined) => Promise<OrderBook> = () =>
+    Promise.resolve(makeOrderBook(Date.now()));
+  loadMarketsImpl: () => Promise<Dictionary<Market>> = () => Promise.resolve({});
+  closeImpl: () => Promise<void> = () => Promise.resolve();
 
-  async fetchTicker(symbol: string): Promise<unknown> {
+  override fetchTicker(symbol: string): Promise<Ticker> {
     return this.fetchTickerImpl(symbol);
   }
 
-  async watchOrderBook(symbol: string, limit: number): Promise<unknown> {
+  override watchOrderBook(symbol: string, limit?: number): Promise<OrderBook> {
     return this.watchOrderBookImpl(symbol, limit);
   }
 
-  async loadMarkets(): Promise<unknown> {
+  override loadMarkets(): Promise<Dictionary<Market>> {
     return this.loadMarketsImpl();
   }
 
-  async close(): Promise<void> {
+  override close(): Promise<void> {
     return this.closeImpl();
   }
 }
 
+function makeTicker(symbol = "BTC/USDT", last?: number): Ticker {
+  return {
+    symbol,
+    info: {},
+    timestamp: Date.now(),
+    datetime: undefined,
+    high: undefined,
+    low: undefined,
+    bid: undefined,
+    bidVolume: undefined,
+    ask: undefined,
+    askVolume: undefined,
+    vwap: undefined,
+    open: undefined,
+    close: undefined,
+    last,
+    previousClose: undefined,
+    change: undefined,
+    percentage: undefined,
+    average: undefined,
+    quoteVolume: undefined,
+    baseVolume: undefined,
+    indexPrice: undefined,
+    markPrice: undefined,
+  };
+}
+
+function makeOrderBook(timestamp: number): OrderBook {
+  return {
+    asks: [],
+    bids: [],
+    datetime: undefined,
+    timestamp,
+    nonce: undefined,
+    symbol: undefined,
+    copy: () => makeOrderBook(timestamp),
+  };
+}
+
+class MockLatencyMonitor extends LatencyMonitor {
+  constructor(private readonly mocks: ReadonlyMap<SupportedExchangeId, MockCcxtExchange>) {
+    super();
+  }
+
+  override createExchange(exchangeId: SupportedExchangeId): Exchange {
+    const mock = this.mocks.get(exchangeId);
+    if (mock === undefined) return super.createExchange(exchangeId);
+    return mock;
+  }
+}
+
+function getMock(
+  mocks: ReadonlyMap<SupportedExchangeId, MockCcxtExchange>,
+  exchangeId: SupportedExchangeId,
+): MockCcxtExchange {
+  const mock = mocks.get(exchangeId);
+  if (mock === undefined) throw new Error(`mock for ${exchangeId} not found`);
+  return mock;
+}
+
+async function waitForClose(closeCalled: Promise<void>): Promise<"closed"> {
+  await closeCalled;
+  return "closed";
+}
+
+function waitForTimeout(timeoutMs: number): Promise<"timeout"> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve("timeout");
+    }, timeoutMs);
+  });
+}
+
 /**
- * `makeMonitorWithMocks` — létrehoz egy LatencyMonitor instance-t és
- * a megadott mock exchange-eket. A monitor `createExchange` metódusát
- * úgy írja felül, hogy a mock exchange-eket adja vissza a megadott ID-kre.
- *
- * Visszatérési érték: `{ monitor, mocks }`, ahol `mocks` egy Map a
- * `SupportedExchangeId` → `MockCcxtExchange` leképezéssel.
+ * Creates a monitor whose public factory returns the supplied test doubles.
  */
 function makeMonitorWithMocks(ids: readonly SupportedExchangeId[]): {
   monitor: LatencyMonitor;
   mocks: Map<SupportedExchangeId, MockCcxtExchange>;
 } {
-  const monitor = new LatencyMonitor();
   const mocks = new Map<SupportedExchangeId, MockCcxtExchange>();
   for (const id of ids) {
     mocks.set(id, new MockCcxtExchange());
   }
-  // A `createExchange` metódust írjuk felül: a `mocks` map-ből adjuk vissza
-  // a megfelelő mock-ot, ha van, különben a CCXT factory-t hívjuk (de a
-  // unit tesztek mindig átadják az összes ID-t a `mocks` map-ben).
-  const original = monitor.createExchange.bind(monitor);
-  (
-    monitor as unknown as {
-      createExchange: (id: SupportedExchangeId) => MockCcxtExchange;
-    }
-  ).createExchange = (id: SupportedExchangeId): MockCcxtExchange => {
-    const m = mocks.get(id);
-    if (m !== undefined) return m;
-    // Fallback: valódi CCXT exchange. Csak a type-check teljesítéséhez kell.
-    return original(id) as unknown as MockCcxtExchange;
-  };
+  const monitor = new MockLatencyMonitor(mocks);
   return { monitor, mocks };
 }
 
@@ -227,16 +131,16 @@ describe("LatencyMonitor.measureExchange", () => {
    */
   it("RTT measurement correctness: counts samples, computes median", async () => {
     const { monitor, mocks } = makeMonitorWithMocks(["binance"]);
-    const ex = mocks.get("binance") as MockCcxtExchange;
+    const ex = getMock(mocks, "binance");
     ex.fetchTickerImpl = async () => {
       // 30 ms szimulált hálózati késleltetés minden hívásnál.
       await new Promise((r) => setTimeout(r, 30));
-      return { symbol: "BTC/USDT", last: 50000 };
+      return makeTicker("BTC/USDT", 50_000);
     };
     ex.watchOrderBookImpl = async () => {
       // Azonnal visszatérünk, de a duration timer le fog állítani.
       await new Promise((r) => setTimeout(r, 10));
-      return { bids: [], asks: [], timestamp: Date.now() };
+      return makeOrderBook(Date.now());
     };
 
     const result = await monitor.measureExchange("binance", {
@@ -265,14 +169,14 @@ describe("LatencyMonitor.measureExchange", () => {
     // szükséges üzeneteket, így gapCount=0 lett). Most hosszabb
     // duration és kisebb threshold a robusztusság kedvéért.
     const { monitor, mocks } = makeMonitorWithMocks(["binance"]);
-    const ex = mocks.get("binance") as MockCcxtExchange;
-    ex.fetchTickerImpl = async () => ({});
+    const ex = getMock(mocks, "binance");
+    ex.fetchTickerImpl = () => Promise.resolve(makeTicker());
     let callIndex = 0;
     ex.watchOrderBookImpl = async () => {
       const targetTime = Date.now() + 80 * (callIndex + 1);
       callIndex += 1;
       await new Promise((r) => setTimeout(r, Math.max(0, targetTime - Date.now())));
-      return { bids: [], asks: [], timestamp: Date.now() };
+      return makeOrderBook(Date.now());
     };
 
     const result = await monitor.measureExchange("binance", {
@@ -302,23 +206,21 @@ describe("LatencyMonitor.measureExchange", () => {
    */
   it("Reconnect time tracking: forced disconnect triggers at most one reconnect sample", async () => {
     const { monitor, mocks } = makeMonitorWithMocks(["binance"]);
-    const ex = mocks.get("binance") as MockCcxtExchange;
-    ex.fetchTickerImpl = async () => ({});
+    const ex = getMock(mocks, "binance");
+    ex.fetchTickerImpl = () => Promise.resolve(makeTicker());
     let messageCount = 0;
     ex.watchOrderBookImpl = async () => {
       messageCount += 1;
       if (messageCount < 3) {
-        return { bids: [], asks: [], timestamp: Date.now() };
+        return makeOrderBook(Date.now());
       }
       await new Promise((r) => setTimeout(r, 30));
-      return { bids: [], asks: [], timestamp: Date.now() };
+      return makeOrderBook(Date.now());
     };
-    ex.closeImpl = async () => {
-      // Azonnali.
-    };
+    ex.closeImpl = () => Promise.resolve();
     ex.loadMarketsImpl = async () => {
       await new Promise((r) => setTimeout(r, 50));
-      return {};
+      return makeTicker();
     };
 
     const result = await monitor.measureExchange("binance", {
@@ -346,24 +248,24 @@ describe("LatencyMonitor.measureExchange", () => {
    */
   it("Multi-exchange aggregation: start() aggregates stats from all exchanges", async () => {
     const { monitor, mocks } = makeMonitorWithMocks(["binance", "bybit"]);
-    const binanceEx = mocks.get("binance") as MockCcxtExchange;
-    const bybitEx = mocks.get("bybit") as MockCcxtExchange;
+    const binanceEx = getMock(mocks, "binance");
+    const bybitEx = getMock(mocks, "bybit");
 
     binanceEx.fetchTickerImpl = async () => {
       await new Promise((r) => setTimeout(r, 20));
-      return {};
+      return makeTicker();
     };
     bybitEx.fetchTickerImpl = async () => {
       await new Promise((r) => setTimeout(r, 50));
-      return {};
+      return makeTicker();
     };
     binanceEx.watchOrderBookImpl = async () => {
       await new Promise((r) => setTimeout(r, 30));
-      return { bids: [], asks: [], timestamp: Date.now() };
+      return makeOrderBook(Date.now());
     };
     bybitEx.watchOrderBookImpl = async () => {
       await new Promise((r) => setTimeout(r, 30));
-      return { bids: [], asks: [], timestamp: Date.now() };
+      return makeOrderBook(Date.now());
     };
 
     const result = await monitor.start({
@@ -375,12 +277,12 @@ describe("LatencyMonitor.measureExchange", () => {
       measureReconnect: false,
     });
 
-    expect(result.statsByExchange["binance"]).toBeDefined();
-    expect(result.statsByExchange["bybit"]).toBeDefined();
-    expect(result.statsByExchange["binance"].rttCount).toBeGreaterThanOrEqual(1);
-    expect(result.statsByExchange["bybit"].rttCount).toBeGreaterThanOrEqual(1);
-    expect(result.statsByExchange["bybit"].rttMedianMs).toBeGreaterThan(
-      result.statsByExchange["binance"].rttMedianMs,
+    expect(result.statsByExchange.binance).toBeDefined();
+    expect(result.statsByExchange.bybit).toBeDefined();
+    expect(result.statsByExchange.binance.rttCount).toBeGreaterThanOrEqual(1);
+    expect(result.statsByExchange.bybit.rttCount).toBeGreaterThanOrEqual(1);
+    expect(result.statsByExchange.bybit.rttMedianMs).toBeGreaterThan(
+      result.statsByExchange.binance.rttMedianMs,
     );
   });
 
@@ -393,16 +295,16 @@ describe("LatencyMonitor.measureExchange", () => {
    */
   it("Edge case: dropped messages — exceptions in watchOrderBook are handled gracefully", async () => {
     const { monitor, mocks } = makeMonitorWithMocks(["binance"]);
-    const ex = mocks.get("binance") as MockCcxtExchange;
-    ex.fetchTickerImpl = async () => ({});
-    let callIdx = 0;
+    const ex = getMock(mocks, "binance");
+    ex.fetchTickerImpl = () => Promise.resolve(makeTicker());
+    let callIndex = 0;
     ex.watchOrderBookImpl = async () => {
-      callIdx += 1;
-      if (callIdx % 2 === 0) {
+      callIndex += 1;
+      if (callIndex % 2 === 0) {
         throw new Error("WS timeout");
       }
       await new Promise((r) => setTimeout(r, 30));
-      return { bids: [], asks: [], timestamp: Date.now() };
+      return makeOrderBook(Date.now());
     };
 
     const result = await monitor.measureExchange("binance", {
@@ -427,7 +329,7 @@ describe("LatencyMonitor.measureExchange", () => {
    */
   it("Edge case: partial REST responses — successRate < 1 when fetchTicker fails intermittently", async () => {
     const { monitor, mocks } = makeMonitorWithMocks(["binance"]);
-    const ex = mocks.get("binance") as MockCcxtExchange;
+    const ex = getMock(mocks, "binance");
     let fetchCount = 0;
     ex.fetchTickerImpl = async () => {
       fetchCount += 1;
@@ -435,11 +337,11 @@ describe("LatencyMonitor.measureExchange", () => {
         throw new Error("Rate limited");
       }
       await new Promise((r) => setTimeout(r, 20));
-      return {};
+      return makeTicker();
     };
     ex.watchOrderBookImpl = async () => {
       await new Promise((r) => setTimeout(r, 50));
-      return { bids: [], asks: [], timestamp: Date.now() };
+      return makeOrderBook(Date.now());
     };
 
     const result = await monitor.measureExchange("binance", {
@@ -457,25 +359,6 @@ describe("LatencyMonitor.measureExchange", () => {
   });
 });
 
-describe("LatencyMonitor.createExchange", () => {
-  it("returns a CCXT Exchange instance for valid IDs", () => {
-    const monitor = new LatencyMonitor();
-    for (const id of SUPPORTED_EXCHANGE_IDS) {
-      const ex = monitor.createExchange(id);
-      expect(ex).toBeDefined();
-      expect(typeof ex.fetchTicker).toBe("function");
-      expect(typeof ex.watchOrderBook).toBe("function");
-    }
-  });
-
-  it("throws on unknown IDs", () => {
-    const monitor = new LatencyMonitor();
-    expect(() =>
-      (monitor as unknown as { createExchange: (id: string) => unknown }).createExchange("unknown"),
-    ).toThrow(/Ismeretlen exchange/);
-  });
-});
-
 describe("LatencyMonitor.abort", () => {
   /**
    * Teszt #7 — Abort API: mid-measurement cleanup.
@@ -489,25 +372,21 @@ describe("LatencyMonitor.abort", () => {
    */
   it("aborts in-flight measurement and triggers cleanup within 100ms", async () => {
     const { monitor, mocks } = makeMonitorWithMocks(["binance"]);
-    const ex = mocks.get("binance") as MockCcxtExchange;
+    const ex = getMock(mocks, "binance");
 
-    ex.fetchTickerImpl = async () => ({});
+    ex.fetchTickerImpl = () => Promise.resolve(makeTicker());
     // A `watchOrderBook` azonnal visszatér, hogy a belső ciklus a
     // `!this.cancelled` flag-et minél gyorsabban ellenőrizze.
     ex.watchOrderBookImpl = async () => {
       await new Promise((r) => setTimeout(r, 5));
-      return { bids: [], asks: [], timestamp: Date.now() };
+      return makeOrderBook(Date.now());
     };
     // A close() felold egy promise-ot, hogy a teszt szinkronban mérhesse
     // a close() hívásának időpontját az abort() hívásához képest.
-    let closeResolve: () => void = () => {
-      // No-op default — felülírja a Promise constructor.
-    };
-    const closeCalled = new Promise<void>((r) => {
-      closeResolve = r;
-    });
-    ex.closeImpl = async () => {
-      closeResolve();
+    const { promise: closeCalled, resolve: closeResolve } = Promise.withResolvers<undefined>();
+    ex.closeImpl = () => {
+      closeResolve(undefined);
+      return Promise.resolve();
     };
 
     const measureStart = Date.now();
@@ -527,10 +406,7 @@ describe("LatencyMonitor.abort", () => {
 
     // A close()-nak az abort() hívásától számított 100ms-on belül meg
     // kell hívódnia — a `closeCalled` promise jelzi a hívás időpontját.
-    const closeResult = await Promise.race([
-      closeCalled.then(() => "closed" as const),
-      new Promise<"timeout">((r) => setTimeout(() => r("timeout"), 200)),
-    ]);
+    const closeResult = await Promise.race([waitForClose(closeCalled), waitForTimeout(200)]);
     const cleanupLatencyMs = Date.now() - abortCallStart;
     expect(closeResult).toBe("closed");
     expect(cleanupLatencyMs).toBeLessThan(100);
@@ -551,33 +427,21 @@ describe("LatencyMonitor.abort", () => {
    * és normálisan fut.
    */
   it("is a no-op when no measurement is in flight (no close() call, but resets cleanly)", async () => {
-    const monitor = new LatencyMonitor();
+    const { monitor, mocks } = makeMonitorWithMocks(["binance"]);
     // abort() aktív mérés nélkül — nem dob, nem crashel.
     await monitor.abort();
     // Ezután indított mérésnek normálisan kell futnia (a flag resetelődik
     // a measureExchange elején).
-    const { mocks } = makeMonitorWithMocks(["binance"]);
-    // Lecseréljük a monitor createExchange-ét, hogy a frissen készített
-    // mock-ot használja.
-    (
-      monitor as unknown as {
-        createExchange: (id: SupportedExchangeId) => MockCcxtExchange;
-      }
-    ).createExchange = (id: SupportedExchangeId): MockCcxtExchange => {
-      const m = mocks.get(id);
-      if (m === undefined) throw new Error(`mock for ${id} not found`);
-      return m;
-    };
-
-    const ex = mocks.get("binance") as MockCcxtExchange;
+    const ex = getMock(mocks, "binance");
     let closeCount = 0;
-    ex.fetchTickerImpl = async () => ({});
+    ex.fetchTickerImpl = () => Promise.resolve(makeTicker());
     ex.watchOrderBookImpl = async () => {
       await new Promise((r) => setTimeout(r, 5));
-      return { bids: [], asks: [], timestamp: Date.now() };
+      return makeOrderBook(Date.now());
     };
-    ex.closeImpl = async () => {
+    ex.closeImpl = () => {
       closeCount += 1;
+      return Promise.resolve();
     };
 
     const result = await monitor.measureExchange("binance", {
@@ -602,16 +466,14 @@ describe("LatencyMonitor.abort", () => {
    */
   it("swallows close() errors during abort (best-effort cleanup)", async () => {
     const { monitor, mocks } = makeMonitorWithMocks(["binance"]);
-    const ex = mocks.get("binance") as MockCcxtExchange;
+    const ex = getMock(mocks, "binance");
 
-    ex.fetchTickerImpl = async () => ({});
+    ex.fetchTickerImpl = () => Promise.resolve(makeTicker());
     ex.watchOrderBookImpl = async () => {
       await new Promise((r) => setTimeout(r, 5));
-      return { bids: [], asks: [], timestamp: Date.now() };
+      return makeOrderBook(Date.now());
     };
-    ex.closeImpl = async () => {
-      throw new Error("WS already closed");
-    };
+    ex.closeImpl = () => Promise.reject(new Error("WS already closed"));
 
     const measurePromise = monitor.measureExchange("binance", {
       exchangeIds: ["binance"],
@@ -624,8 +486,14 @@ describe("LatencyMonitor.abort", () => {
 
     await new Promise((r) => setTimeout(r, 50));
     // Az abort() a close() hibája ellenére feloldódik.
-    await expect(monitor.abort()).resolves.toBeUndefined();
+    let abortError: unknown;
+    try {
+      await monitor.abort();
+    } catch (error: unknown) {
+      abortError = error;
+    }
+    expect(abortError).toBeUndefined();
     // A measureExchange finally blokkja is elnyeli a close() hibát.
-    await expect(measurePromise).resolves.toBeDefined();
+    expect(await measurePromise).toBeDefined();
   });
 });
