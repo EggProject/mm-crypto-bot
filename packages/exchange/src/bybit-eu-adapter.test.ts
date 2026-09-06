@@ -189,6 +189,27 @@ describe("BybitEuAdapter — public sandbox boundary", () => {
 });
 
 describe("BybitEuAdapter test support", () => {
+  it("copies an order book into an independent fixture with the canonical public fields", () => {
+    const original = mockOrderBook("ETH/USDC");
+    const copied = original.copy();
+
+    expect(copied).not.toBe(original);
+    expect(copied).toEqual({
+      symbol: "ETH/USDC",
+      asks: [],
+      bids: [],
+      datetime: "1970-01-01T00:00:00.000Z",
+      timestamp: 1,
+      nonce: 1,
+    });
+
+    copied.asks.push([2001, 2]);
+    copied.bids.push([1999, 3]);
+
+    expect(original.asks).toEqual([]);
+    expect(original.bids).toEqual([]);
+  });
+
   it("creates explicit helper overrides and a canonical six-field order book", () => {
     const ticker = tickerWith("BTC/USDC", { bid: 59_999 });
     const order = orderWith("BTC/USDC", { status: "closed" });
