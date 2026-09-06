@@ -22,7 +22,8 @@ const CREDENTIAL_MARKERS = new Set([
 ]);
 
 function sortKeysByCodeUnit(keys: readonly string[]): readonly string[] {
-  return keys.toSorted((left, right) => Number(left > right) - Number(left < right));
+  // eslint-disable-next-line unicorn/no-array-sort -- TypeScript target lacks ES2023 Array#toSorted; the spread preserves input immutability.
+  return [...keys].sort((left, right) => Number(left > right) - Number(left < right));
 }
 
 export function isExchangeCredentialEnvironmentKey(key: string): boolean {

@@ -65,6 +65,15 @@ describe("bot E2E child environment boundary", () => {
     expect(isExchangeCredentialEnvironmentKey("CCXT_APIKEY")).toBe(true);
   });
 
+  it("reports removed credential keys in code-unit order", () => {
+    const environment: NodeJS.ProcessEnv = {
+      BYBIT_a_KEY: "lowercase-key",
+      BYBIT_Z_KEY: "uppercase-key",
+    };
+
+    expect(dropBotE2ECredentialsFromProcessEnvironment(environment)).toEqual(["BYBIT_Z_KEY", "BYBIT_a_KEY"]);
+  });
+
   it("accepts every explicit override and removes an allowed inherited value", () => {
     expect(
       buildBotE2EChildEnvironment(
