@@ -126,7 +126,7 @@ function validateRelativeOutputPath(outputPath: string): void {
     /\p{Cc}/u.test(outputPath) ||
     outputPath.startsWith("/") ||
     outputPath.includes("\\") ||
-    /^[A-Za-z]:\//u.test(outputPath)
+    /^[A-Za-z]:/u.test(outputPath)
   ) {
     fail();
   }
