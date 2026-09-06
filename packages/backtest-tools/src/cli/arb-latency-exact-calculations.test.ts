@@ -80,6 +80,32 @@ function expectExact(value: ExactRational, numerator: string, denominator = "1")
   expect(value.toSnapshot()).toEqual({ schema: "exact-rational@1", numerator, denominator });
 }
 
+function expectCalculationError(action: () => unknown, code: string): void {
+  try {
+    action();
+  } catch (error: unknown) {
+    expect(error).toBeInstanceOf(ArbLatencyCalculationError);
+    if (error instanceof ArbLatencyCalculationError) {
+      expect(error.code).toBe(code);
+      return;
+    }
+  }
+
+  throw new Error(`Expected ArbLatencyCalculationError with code ${code}.`);
+}
+
+function unauthenticExactRational(): ExactRational {
+  return new Proxy(exact("1"), {});
+}
+
+type OpportunityRationalField = "crossSpreadBps" | "theoreticalPnlUsd";
+type SummaryRationalField =
+  | "profitableRate"
+  | "medianSpreadBps"
+  | "maxSpreadBps"
+  | "totalTheoreticalPnlUsd"
+  | "averagePnlPerOpportunityUsd";
+
 describe("exact arb latency calculations", () => {
   it("calculates immutable directional spreads with the established asymmetric denominator", () => {
     const directionalSpreads = calculateExactDirectionalArbSpreads(
@@ -170,6 +196,60 @@ describe("exact arb latency calculations", () => {
     expect(() => isExactOpportunityProfitable(exact("1"), exact("-1"), 1n)).toThrow(
       ArbLatencyCalculationError,
     );
+  });
+
+  it("maps unauthentic exact rational JavaScript-boundary inputs to typed calculation errors", () => {
+    const malformedValue: unknown = Object.freeze({});
+    const exchangeA = exchangeQuote("binance", "100", "101");
+    expect(Reflect.set(exchangeA, "bid", unauthenticExactRational())).toBe(true);
+    expectCalculationError(
+      () => calculateExactDirectionalArbSpreads(exchangeA, exchangeQuote("bybit", "99", "100")),
+      "INVALID_EXACT_RATIONAL",
+    );
+
+    expectCalculationError(
+      () => Reflect.apply(calculateExactOpportunityPnlUsd, undefined, [malformedValue, exact("1000"), 1n]),
+      "INVALID_EXACT_RATIONAL",
+    );
+    expectCalculationError(
+      () => Reflect.apply(calculateExactOpportunityPnlUsd, undefined, [exact("1"), malformedValue, 1n]),
+      "INVALID_EXACT_RATIONAL",
+    );
+
+    const opportunityRationalFields: readonly OpportunityRationalField[] = [
+      "crossSpreadBps",
+      "theoreticalPnlUsd",
+    ];
+    for (const opportunityField of opportunityRationalFields) {
+      const malformedOpportunity = opportunity(1, "1", "1", true);
+      expect(Reflect.set(malformedOpportunity, opportunityField, unauthenticExactRational())).toBe(true);
+      expectCalculationError(
+        () => summarizeExactOpportunities([malformedOpportunity]),
+        "INVALID_EXACT_RATIONAL",
+      );
+    }
+
+    const summaryRationalFields: readonly SummaryRationalField[] = [
+      "profitableRate",
+      "medianSpreadBps",
+      "maxSpreadBps",
+      "totalTheoreticalPnlUsd",
+      "averagePnlPerOpportunityUsd",
+    ];
+    for (const summaryField of summaryRationalFields) {
+      const malformedSummary = { ...profitableSummary(1, exact("1")) };
+      expect(Reflect.set(malformedSummary, summaryField, unauthenticExactRational())).toBe(true);
+      expectCalculationError(
+        () =>
+          assessExactDeploymentReadiness(
+            latencyStats(),
+            latencyStats({ exchangeId: "bybit" }),
+            malformedSummary,
+            3_600_000_000_000n,
+          ),
+        "INVALID_EXACT_RATIONAL",
+      );
+    }
   });
 
   it("uses only valid P95 latency values and preserves the 99/100ms boundary", () => {

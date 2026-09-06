@@ -6,6 +6,7 @@ export type ArbLatencyCalculationErrorCode =
   | "DUPLICATE_EXCHANGE_ID"
   | "INCONSISTENT_OPPORTUNITY"
   | "INCONSISTENT_SUMMARY"
+  | "INVALID_EXACT_RATIONAL"
   | "INVALID_EXCHANGE_QUOTE"
   | "INVALID_LATENCY_P95"
   | "INVALID_NOTIONAL_USD"
@@ -16,8 +17,9 @@ export class ArbLatencyCalculationError extends Error {
   public constructor(
     public readonly code: ArbLatencyCalculationErrorCode,
     message: string,
+    cause?: unknown,
   ) {
-    super(message);
+    super(message, { cause });
     this.name = "ArbLatencyCalculationError";
   }
 }
@@ -63,6 +65,24 @@ export interface ExactDirectionalArbSpreads {
   readonly maximumSpreadBps: ExactRational;
 }
 
+interface AuthenticatedExchangeQuoteValues {
+  readonly bid: ExactRational;
+  readonly ask: ExactRational;
+}
+
+interface AuthenticatedOpportunityValues {
+  readonly crossSpreadBps: ExactRational;
+  readonly theoreticalPnlUsd: ExactRational;
+}
+
+interface AuthenticatedOpportunitySummaryValues {
+  readonly profitableRate: ExactRational;
+  readonly medianSpreadBps: ExactRational;
+  readonly maxSpreadBps: ExactRational;
+  readonly totalTheoreticalPnlUsd: ExactRational;
+  readonly averagePnlPerOpportunityUsd: ExactRational;
+}
+
 const EXACT_ZERO = ExactRational.from(0n);
 const EXACT_ONE = ExactRational.from(1n);
 const BPS_PER_UNIT = ExactRational.from(10_000n);
@@ -75,6 +95,18 @@ const SUB_100_MS_THRESHOLD = 100n;
 const PASS_OPPORTUNITIES_PER_HOUR = ExactRational.from(10n);
 const PARTIAL_OPPORTUNITIES_PER_HOUR = EXACT_ONE;
 const PASS_MONTHLY_PNL_USD = ExactRational.from(1000n);
+
+function requireAuthenticExactRational(value: unknown, fieldName: string): ExactRational {
+  try {
+    return ExactRational.requireAuthentic(value);
+  } catch (error: unknown) {
+    throw new ArbLatencyCalculationError(
+      "INVALID_EXACT_RATIONAL",
+      `${fieldName} must be an authentic ExactRational value.`,
+      error,
+    );
+  }
+}
 
 function requireSafeNonNegativeInteger(value: number, fieldName: string): void {
   if (!Number.isSafeInteger(value) || value < 0) {
@@ -100,27 +132,41 @@ function requirePositiveNotionalUsd(notionalUsd: ExactRational): void {
   }
 }
 
-function requireValidExactExchangeQuote(exchangeQuote: ExactExchangeQuote, quoteName: string): void {
-  if (!(exchangeQuote.bid instanceof ExactRational) || !(exchangeQuote.ask instanceof ExactRational)) {
-    throw new ArbLatencyCalculationError(
-      "INVALID_EXCHANGE_QUOTE",
-      `${quoteName} bid and ask must be ExactRational values.`,
-    );
-  }
+function requireValidExactExchangeQuote(
+  exchangeQuote: ExactExchangeQuote,
+  quoteName: string,
+): AuthenticatedExchangeQuoteValues {
+  const bid = requireAuthenticExactRational(exchangeQuote.bid, `${quoteName} bid`);
+  const ask = requireAuthenticExactRational(exchangeQuote.ask, `${quoteName} ask`);
 
-  if (exchangeQuote.bid.compare(EXACT_ZERO) <= 0 || exchangeQuote.ask.compare(EXACT_ZERO) <= 0) {
+  if (bid.compare(EXACT_ZERO) <= 0 || ask.compare(EXACT_ZERO) <= 0) {
     throw new ArbLatencyCalculationError(
       "INVALID_EXCHANGE_QUOTE",
       `${quoteName} bid and ask must both be strictly positive.`,
     );
   }
 
-  if (exchangeQuote.bid.compare(exchangeQuote.ask) > 0) {
+  if (bid.compare(ask) > 0) {
     throw new ArbLatencyCalculationError("INVALID_EXCHANGE_QUOTE", `${quoteName} bid must not exceed ask.`);
   }
+
+  return { bid, ask };
 }
 
-function requireOpportunityConsistency(opportunity: ExactSpreadOpportunity): void {
+function requireOpportunityConsistency(opportunity: ExactSpreadOpportunity): AuthenticatedOpportunityValues {
+  void requireAuthenticExactRational(opportunity.exchangeA.bid, "opportunity exchangeA bid");
+  void requireAuthenticExactRational(opportunity.exchangeA.ask, "opportunity exchangeA ask");
+  void requireAuthenticExactRational(opportunity.exchangeB.bid, "opportunity exchangeB bid");
+  void requireAuthenticExactRational(opportunity.exchangeB.ask, "opportunity exchangeB ask");
+  const crossSpreadBps = requireAuthenticExactRational(
+    opportunity.crossSpreadBps,
+    "opportunity crossSpreadBps",
+  );
+  const theoreticalPnlUsd = requireAuthenticExactRational(
+    opportunity.theoreticalPnlUsd,
+    "opportunity theoreticalPnlUsd",
+  );
+
   if (!Number.isSafeInteger(opportunity.timestamp)) {
     throw new ArbLatencyCalculationError(
       "INVALID_TIMESTAMP",
@@ -128,13 +174,15 @@ function requireOpportunityConsistency(opportunity: ExactSpreadOpportunity): voi
     );
   }
 
-  const isPnlPositive = opportunity.theoreticalPnlUsd.compare(EXACT_ZERO) > 0;
+  const isPnlPositive = theoreticalPnlUsd.compare(EXACT_ZERO) > 0;
   if (opportunity.profitableAfterLatency !== isPnlPositive) {
     throw new ArbLatencyCalculationError(
       "INCONSISTENT_OPPORTUNITY",
       "Opportunity profitability must exactly match a positive theoretical PnL.",
     );
   }
+
+  return { crossSpreadBps, theoreticalPnlUsd };
 }
 
 function findExactInsertionIndex(sortedValues: readonly ExactRational[], value: ExactRational): number {
@@ -189,7 +237,27 @@ function exactText(value: ExactRational): string {
   return snapshot.denominator === "1" ? snapshot.numerator : `${snapshot.numerator}/${snapshot.denominator}`;
 }
 
-function requireConsistentOpportunitySummary(opportunitySummary: ExactOpportunitySummary): void {
+function requireConsistentOpportunitySummary(
+  opportunitySummary: ExactOpportunitySummary,
+): AuthenticatedOpportunitySummaryValues {
+  const profitableRate = requireAuthenticExactRational(
+    opportunitySummary.profitableRate,
+    "summary profitableRate",
+  );
+  const medianSpreadBps = requireAuthenticExactRational(
+    opportunitySummary.medianSpreadBps,
+    "summary medianSpreadBps",
+  );
+  const maxSpreadBps = requireAuthenticExactRational(opportunitySummary.maxSpreadBps, "summary maxSpreadBps");
+  const totalTheoreticalPnlUsd = requireAuthenticExactRational(
+    opportunitySummary.totalTheoreticalPnlUsd,
+    "summary totalTheoreticalPnlUsd",
+  );
+  const averagePnlPerOpportunityUsd = requireAuthenticExactRational(
+    opportunitySummary.averagePnlPerOpportunityUsd,
+    "summary averagePnlPerOpportunityUsd",
+  );
+
   if (opportunitySummary.totalSamples < 0n) {
     throw new ArbLatencyCalculationError("INCONSISTENT_SUMMARY", "totalSamples must be nonnegative.");
   }
@@ -209,7 +277,7 @@ function requireConsistentOpportunitySummary(opportunitySummary: ExactOpportunit
       : ExactRational.from(opportunitySummary.profitableCount).divide(
           ExactRational.from(opportunitySummary.totalSamples),
         );
-  if (!opportunitySummary.profitableRate.equals(expectedProfitableRate)) {
+  if (!profitableRate.equals(expectedProfitableRate)) {
     throw new ArbLatencyCalculationError(
       "INCONSISTENT_SUMMARY",
       "profitableRate must exactly equal profitableCount divided by totalSamples.",
@@ -219,10 +287,8 @@ function requireConsistentOpportunitySummary(opportunitySummary: ExactOpportunit
   const expectedAveragePnlPerOpportunityUsd =
     opportunitySummary.profitableCount === 0n
       ? EXACT_ZERO
-      : opportunitySummary.totalTheoreticalPnlUsd.divide(
-          ExactRational.from(opportunitySummary.profitableCount),
-        );
-  if (!opportunitySummary.averagePnlPerOpportunityUsd.equals(expectedAveragePnlPerOpportunityUsd)) {
+      : totalTheoreticalPnlUsd.divide(ExactRational.from(opportunitySummary.profitableCount));
+  if (!averagePnlPerOpportunityUsd.equals(expectedAveragePnlPerOpportunityUsd)) {
     throw new ArbLatencyCalculationError(
       "INCONSISTENT_SUMMARY",
       "averagePnlPerOpportunityUsd must exactly equal total PnL divided by profitableCount.",
@@ -230,30 +296,41 @@ function requireConsistentOpportunitySummary(opportunitySummary: ExactOpportunit
   }
 
   if (opportunitySummary.profitableCount === 0n) {
-    if (!opportunitySummary.totalTheoreticalPnlUsd.isZero()) {
+    if (!totalTheoreticalPnlUsd.isZero()) {
       throw new ArbLatencyCalculationError(
         "INCONSISTENT_SUMMARY",
         "totalTheoreticalPnlUsd must be zero when profitableCount is zero.",
       );
     }
-    if (
-      opportunitySummary.totalSamples === 0n &&
-      (!opportunitySummary.medianSpreadBps.isZero() || !opportunitySummary.maxSpreadBps.isZero())
-    ) {
+    if (opportunitySummary.totalSamples === 0n && (!medianSpreadBps.isZero() || !maxSpreadBps.isZero())) {
       throw new ArbLatencyCalculationError(
         "INCONSISTENT_SUMMARY",
         "Empty summaries must have zero medianSpreadBps and maxSpreadBps.",
       );
     }
-    return;
+    return {
+      profitableRate,
+      medianSpreadBps,
+      maxSpreadBps,
+      totalTheoreticalPnlUsd,
+      averagePnlPerOpportunityUsd,
+    };
   }
 
-  if (opportunitySummary.totalTheoreticalPnlUsd.compare(EXACT_ZERO) <= 0) {
+  if (totalTheoreticalPnlUsd.compare(EXACT_ZERO) <= 0) {
     throw new ArbLatencyCalculationError(
       "INCONSISTENT_SUMMARY",
       "totalTheoreticalPnlUsd must be strictly positive when profitableCount is positive.",
     );
   }
+
+  return {
+    profitableRate,
+    medianSpreadBps,
+    maxSpreadBps,
+    totalTheoreticalPnlUsd,
+    averagePnlPerOpportunityUsd,
+  };
 }
 
 export function estimateExactArbLatencyMs(statsA: LatencyStats, statsB: LatencyStats): bigint {
@@ -275,16 +352,18 @@ export function calculateExactDirectionalArbSpreads(
       "Directional arbitrage spreads require distinct exchange identifiers.",
     );
   }
-  requireValidExactExchangeQuote(exchangeA, "exchangeA");
-  requireValidExactExchangeQuote(exchangeB, "exchangeB");
+  const authenticatedExchangeA = requireValidExactExchangeQuote(exchangeA, "exchangeA");
+  const authenticatedExchangeB = requireValidExactExchangeQuote(exchangeB, "exchangeB");
 
-  const establishedDenominator = exchangeA.bid.add(exchangeB.ask).divide(ExactRational.from(2n));
-  const aSellBBuySpreadBps = exchangeA.bid
-    .subtract(exchangeB.ask)
+  const establishedDenominator = authenticatedExchangeA.bid
+    .add(authenticatedExchangeB.ask)
+    .divide(ExactRational.from(2n));
+  const aSellBBuySpreadBps = authenticatedExchangeA.bid
+    .subtract(authenticatedExchangeB.ask)
     .divide(establishedDenominator)
     .multiply(BPS_PER_UNIT);
-  const bSellABuySpreadBps = exchangeB.bid
-    .subtract(exchangeA.ask)
+  const bSellABuySpreadBps = authenticatedExchangeB.bid
+    .subtract(authenticatedExchangeA.ask)
     .divide(establishedDenominator)
     .multiply(BPS_PER_UNIT);
 
@@ -304,13 +383,18 @@ export function calculateExactOpportunityPnlUsd(
   if (latencyMs < 0n) {
     throw new ArbLatencyCalculationError("INVALID_LATENCY_P95", "latencyMs must be nonnegative.");
   }
-  requirePositiveNotionalUsd(notionalUsd);
+  const authenticSpreadBps = requireAuthenticExactRational(spreadBps, "spreadBps");
+  const authenticNotionalUsd = requireAuthenticExactRational(notionalUsd, "notionalUsd");
+  requirePositiveNotionalUsd(authenticNotionalUsd);
 
-  const grossPnlUsd = spreadBps.divide(BPS_PER_UNIT).multiply(notionalUsd).multiply(ExactRational.from(2n));
+  const grossPnlUsd = authenticSpreadBps
+    .divide(BPS_PER_UNIT)
+    .multiply(authenticNotionalUsd)
+    .multiply(ExactRational.from(2n));
   const latencyCostUsd = ExactRational.from(latencyMs)
     .divide(MILLISECONDS_PER_SECOND)
     .multiply(LATENCY_COST_RATE_PER_SECOND)
-    .multiply(notionalUsd);
+    .multiply(authenticNotionalUsd);
   return grossPnlUsd.subtract(latencyCostUsd);
 }
 
@@ -330,11 +414,11 @@ export function summarizeExactOpportunities(
   const spreadsBps: ExactRational[] = [];
 
   for (const opportunity of opportunities) {
-    requireOpportunityConsistency(opportunity);
-    spreadsBps.push(opportunity.crossSpreadBps);
+    const authenticatedOpportunity = requireOpportunityConsistency(opportunity);
+    spreadsBps.push(authenticatedOpportunity.crossSpreadBps);
     if (opportunity.profitableAfterLatency) {
       profitableCount += 1n;
-      totalTheoreticalPnlUsd = totalTheoreticalPnlUsd.add(opportunity.theoreticalPnlUsd);
+      totalTheoreticalPnlUsd = totalTheoreticalPnlUsd.add(authenticatedOpportunity.theoreticalPnlUsd);
     }
   }
 
@@ -363,7 +447,7 @@ export function assessExactDeploymentReadiness(
   observedDurationNs: bigint,
 ): ExactDeploymentReadiness {
   requirePositiveDuration(observedDurationNs);
-  requireConsistentOpportunitySummary(opportunitySummary);
+  const authenticatedOpportunitySummary = requireConsistentOpportunitySummary(opportunitySummary);
   const arbLatencyMs = estimateExactArbLatencyMs(statsA, statsB);
   const profitableOpportunitiesPerHour = ExactRational.from(opportunitySummary.profitableCount)
     .multiply(NANOSECONDS_PER_HOUR)
@@ -371,7 +455,7 @@ export function assessExactDeploymentReadiness(
   const averagePnlPerOpportunityUsd =
     opportunitySummary.profitableCount === 0n
       ? EXACT_ZERO
-      : opportunitySummary.totalTheoreticalPnlUsd.divide(
+      : authenticatedOpportunitySummary.totalTheoreticalPnlUsd.divide(
           ExactRational.from(opportunitySummary.profitableCount),
         );
   const monthlyPnlEstimateUsd = profitableOpportunitiesPerHour
