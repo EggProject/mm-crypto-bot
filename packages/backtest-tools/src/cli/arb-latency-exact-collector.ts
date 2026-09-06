@@ -59,7 +59,7 @@ export interface BoundedOperationExecutor {
 }
 
 export interface ExactCcxtTickerExchange {
-  readonly number: StringConstructor;
+  readonly number: unknown;
   readonly fetchTicker: (symbol: string, signal: AbortSignal) => Promise<unknown>;
   readonly close: (signal: AbortSignal) => Promise<void>;
 }
@@ -125,15 +125,22 @@ function requireSafePositiveInteger(value: number, fieldName: string): void {
   }
 }
 
-function requireCollectorInput(input: ExactArbLatencyCollectorInput): void {
+function requireCollectorInput(input: ExactArbLatencyCollectorInput): ExactRational {
   if (input.exchangeA === input.exchangeB || input.symbol.length === 0) {
     fail("INPUT", "Exchange identifiers must be distinct and the symbol must be nonempty.");
   }
   requireSafePositiveInteger(input.durationMs, "durationMs");
   requireSafePositiveInteger(input.rttIntervalMs, "rttIntervalMs");
-  if (!(input.minSpreadBps instanceof ExactRational) || input.minSpreadBps.compare(EXACT_ZERO) < 0) {
+  let minSpreadBps: ExactRational;
+  try {
+    minSpreadBps = ExactRational.requireAuthentic(input.minSpreadBps);
+  } catch (error: unknown) {
+    fail("INPUT", "minSpreadBps must be an authentic ExactRational.", error);
+  }
+  if (minSpreadBps.compare(EXACT_ZERO) < 0) {
     fail("INPUT", "minSpreadBps must be a nonnegative ExactRational.");
   }
+  return minSpreadBps;
 }
 
 function toDurationNanoseconds(milliseconds: number): bigint {
@@ -316,7 +323,7 @@ export async function collectExactArbLatency(
   input: ExactArbLatencyCollectorInput,
   dependencies: ExactArbLatencyCollectorDependencies,
 ): Promise<ExactArbLatencyCollection> {
-  requireCollectorInput(input);
+  const minSpreadBps = requireCollectorInput(input);
   const durationNanoseconds = toDurationNanoseconds(input.durationMs);
   const startedNanoseconds = captureMonotonicNanoseconds(dependencies.monotonicClock);
   let exchangeA: ExactCcxtTickerExchange | undefined;
@@ -377,7 +384,7 @@ export async function collectExactArbLatency(
         tickerB,
       );
       samples.push(sample);
-      if (sample.maximumSpreadBps.compare(input.minSpreadBps) >= 0) {
+      if (sample.maximumSpreadBps.compare(minSpreadBps) >= 0) {
         opportunities.push(provisionalOpportunity(sample));
       }
       const remaining = remainingNanoseconds(

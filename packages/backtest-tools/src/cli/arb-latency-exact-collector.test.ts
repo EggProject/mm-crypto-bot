@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Script } from "node:vm";
 
 import { ExactRational } from "@mm-crypto-bot/numeric";
+import { ExactNumericError } from "@mm-crypto-bot/numeric";
 
 import type { SupportedExchangeId } from "@mm-crypto-bot/exchange";
 
@@ -31,10 +32,21 @@ interface HarnessOptions {
   readonly epoch?: number;
   readonly epochFailure?: Error;
   readonly factoryFailure?: Error;
-  readonly fetchAFailure?: Error;
-  readonly rawFetchAFailure?: boolean;
-  readonly invalidModeA?: boolean;
+  readonly fetchAFailure?: FetchFailure;
+  readonly exchangeANumberMode?: ExchangeNumberMode;
   readonly monotonicNanosecondReadings?: readonly bigint[];
+}
+
+type ExchangeNumberMode = "exact-string" | "native-number";
+
+type FetchFailure =
+  | Readonly<{ readonly kind: "error"; readonly value: Error }>
+  | Readonly<{ readonly kind: "raw"; readonly value: unknown }>;
+
+function rejectFetchTicker(failure: FetchFailure): Promise<never> {
+  const deferred = Promise.withResolvers<never>();
+  deferred.reject(failure.value);
+  return deferred.promise;
 }
 
 function input(
@@ -51,15 +63,55 @@ function input(
   };
 }
 
+function createForwardingExactRationalProxy(authentic: ExactRational): ExactRational {
+  return new Proxy(authentic, {
+    get(_target, property) {
+      const propertyValue: unknown = Reflect.get(authentic, property);
+      if (typeof propertyValue !== "function") {
+        return propertyValue;
+      }
+      return (...arguments_: unknown[]): unknown => {
+        const result: unknown = Reflect.apply(propertyValue, authentic, arguments_);
+        return result;
+      };
+    },
+  });
+}
+
+function createForgedExactRationalPrototype(): object {
+  const forged: object = {};
+  Object.setPrototypeOf(forged, ExactRational.prototype);
+  return Object.freeze(forged);
+}
+
+async function collectFailureFromJavaScriptBoundary(
+  minSpreadBps: unknown,
+  dependencies: ExactArbLatencyCollectorDependencies,
+): Promise<unknown> {
+  const untrustedInput = Object.freeze({
+    durationMs: 1,
+    exchangeA: "binance",
+    exchangeB: "bybit",
+    minSpreadBps,
+    rttIntervalMs: 1,
+    symbol: "BTC/USDT",
+  });
+  const collection: unknown = Reflect.apply(collectExactArbLatency, undefined, [
+    untrustedInput,
+    dependencies,
+  ]);
+  return failure(Promise.resolve(collection));
+}
+
 function inputWithForeignRealmFailure(): ExactArbLatencyCollectorInput {
   const validInput = input();
-  let minSpreadReads = 0;
+  let exchangeAReads = 0;
   return {
     ...validInput,
-    get minSpreadBps(): ExactRational {
-      minSpreadReads += 1;
-      if (minSpreadReads <= 2) {
-        return validInput.minSpreadBps;
+    get exchangeA(): SupportedExchangeId {
+      exchangeAReads += 1;
+      if (exchangeAReads === 1) {
+        return validInput.exchangeA;
       }
       const script = new Script('throw new Error("foreign realm failure")');
       script.runInNewContext();
@@ -73,14 +125,14 @@ function exchange(
   events: string[],
   ticker: unknown,
   closeFailure: Error | undefined,
-  fetchFailure: Error | undefined,
-  number: StringConstructor,
+  fetchFailure: FetchFailure | undefined,
+  numberMode: ExchangeNumberMode,
 ): ExactCcxtTickerExchange {
   return {
-    number,
+    number: numberMode === "exact-string" ? String : Number,
     fetchTicker: (symbol, signal) => {
       events.push(`fetch:${id}:${symbol}:${String(signal.aborted)}`);
-      return fetchFailure === undefined ? Promise.resolve(ticker) : Promise.reject(fetchFailure);
+      return fetchFailure === undefined ? Promise.resolve(ticker) : rejectFetchTicker(fetchFailure);
     },
     close: (signal) => {
       events.push(`close:${id}:${String(signal.aborted)}`);
@@ -97,22 +149,15 @@ function harness(
 ): ExactArbLatencyCollectorDependencies {
   let now = 0n;
   let monotonicReadingIndex = 0;
-  const a = exchange("a", events, tickerA, options.closeAFailure, options.fetchAFailure, String);
-  if (options.rawFetchAFailure) {
-    Object.defineProperty(a, "fetchTicker", {
-      configurable: true,
-      value: (): Promise<unknown> => {
-        const deferred = Promise.withResolvers<unknown>();
-        const rawFailure: unknown = JSON.parse('"raw"');
-        deferred.reject(rawFailure);
-        return deferred.promise;
-      },
-    });
-  }
-  if (options.invalidModeA) {
-    Object.defineProperty(a, "number", { configurable: true, value: Number });
-  }
-  const b = exchange("b", events, tickerB, options.closeBFailure, undefined, String);
+  const a = exchange(
+    "a",
+    events,
+    tickerA,
+    options.closeAFailure,
+    options.fetchAFailure,
+    options.exchangeANumberMode ?? "exact-string",
+  );
+  const b = exchange("b", events, tickerB, options.closeBFailure, undefined, "exact-string");
   const execute = <T>(operation: BoundedOperation<T>): Promise<T> => {
     events.push(`bounded:${operation.label}:${operation.remainingNanoseconds.toString()}`);
     if (operation.label === options.deadlineLabel) {
@@ -194,7 +239,31 @@ function expectCode(error: unknown, code: string): ArbLatencyExactCollectorError
   throw new Error("Expected collector error.");
 }
 
+function expectInvalidExactRationalInput(error: unknown): void {
+  const collectorError = expectCode(error, "INPUT");
+  expect(collectorError.cause).toBeInstanceOf(ExactNumericError);
+  if (collectorError.cause instanceof ExactNumericError) {
+    expect(collectorError.cause.code).toBe("INVALID_RATIONAL");
+  }
+}
+
 describe("exact arb latency collector", () => {
+  it("rejects unauthentic min spread values at the public JavaScript boundary before exchange I/O", async () => {
+    const authentic = ExactRational.from("1");
+    const untrustedMinSpreads: readonly unknown[] = [
+      createForwardingExactRationalProxy(authentic),
+      createForgedExactRationalPrototype(),
+    ];
+
+    for (const minSpreadBps of untrustedMinSpreads) {
+      const events: string[] = [];
+      const error = await collectFailureFromJavaScriptBoundary(minSpreadBps, harness(events));
+
+      expectInvalidExactRationalInput(error);
+      expect(events).toEqual([]);
+    }
+  });
+
   it("uses bounded signalled ports, exact asymmetric spreads, and immutable provisional opportunities", async () => {
     const events: string[] = [];
     const result = await collectExactArbLatency(
@@ -230,7 +299,7 @@ describe("exact arb latency collector", () => {
       new ArbLatencyExactCollectorDeadlineError("TIMEOUT", "caused", new Error("cause")).cause,
     ).toBeInstanceOf(Error);
     const rawFetchFailure = await collectFailure(
-      harness([], undefined, undefined, { rawFetchAFailure: true }),
+      harness([], undefined, undefined, { fetchAFailure: { kind: "raw", value: "raw" } }),
     );
     expectCode(rawFetchFailure, "FETCH");
   });
@@ -307,7 +376,9 @@ describe("exact arb latency collector", () => {
     const factoryError = await collectFailure(factoryDependencies);
     expectCode(factoryError, "FACTORY");
 
-    const invalidModeDependencies = harness([], undefined, undefined, { invalidModeA: true });
+    const invalidModeDependencies = harness([], undefined, undefined, {
+      exchangeANumberMode: "native-number",
+    });
     const modeError = await collectFailure(invalidModeDependencies);
     expect(modeError).toBeInstanceOf(ArbLatencyBoundaryError);
 
@@ -360,7 +431,7 @@ describe("exact arb latency collector", () => {
       collectExactArbLatency(
         input(),
         harness(events, undefined, undefined, {
-          fetchAFailure: primary,
+          fetchAFailure: { kind: "error", value: primary },
           closeAFailure,
           closeBFailure,
         }),
