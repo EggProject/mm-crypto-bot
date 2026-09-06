@@ -21,6 +21,7 @@ import ccxt from "ccxt";
 import {
   BybitEuFeed,
   type BybitEuFeedOptions,
+  type ExchangeCredentials,
   MissingCredentialsError,
   createExchangeClient,
   detectExchangeEnvironment,
@@ -137,6 +138,25 @@ describe("factory", () => {
       });
       expect(feed).toBeInstanceOf(BybitEuFeed);
       expect(feed.exchangeId).toBe("bybiteu");
+    });
+
+    it("returns a BybitEuFeed with an explicit timeout and typed override credentials", () => {
+      const credentials: ExchangeCredentials = { apiKey: "timeout-key", secret: "timeout-secret" };
+
+      withCapturedBybitEuConstructor((capture) => {
+        const feed = createExchangeClient({ override: credentials, timeoutMs: 750 });
+
+        expect(feed).toBeInstanceOf(BybitEuFeed);
+        expect(feed.exchangeId).toBe("bybiteu");
+        expect(capture.calls()).toBe(1);
+        expect(capture.options()).toMatchObject({
+          apiKey: "timeout-key",
+          secret: "timeout-secret",
+          enableRateLimit: true,
+          rateLimit: 100,
+          timeout: 750,
+        });
+      });
     });
 
     it("BybitEuFeed-et ad vissza env-ből olvasott kulcsokkal", () => {
