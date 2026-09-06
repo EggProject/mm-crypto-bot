@@ -3,7 +3,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { SelectedLeverage } from "@mm-crypto-bot/numeric";
+
 import { ConfigError, loadBotConfig } from "./loader.js";
+import { normalizeBotConfigForValidation } from "./selected-leverage-config.js";
 import { ConfigStore } from "./store.js";
 import { BotConfigSchema } from "./schema.js";
 
@@ -37,10 +40,20 @@ describe("selected leverage configuration", () => {
     expect(selectedLeverageCanonical(loadBotConfig(undefined, {}))).toBe("10");
   });
 
-  it("loads canonical 2.5 without numeric conversion", () => {
-    withTemporaryConfig('[bot]\nselected_leverage = "2.5"\n', (path) => {
-      expect(selectedLeverageCanonical(loadBotConfig(path, {}))).toBe("2.5");
-    });
+  it("keeps rational selected leverage values available to internal numeric code", () => {
+    expect(SelectedLeverage.parse("2.5").canonical).toBe("2.5");
+  });
+
+  it("leaves a primitive config candidate for schema validation", () => {
+    const raw = "not a config object";
+
+    expect(normalizeBotConfigForValidation(raw)).toBe(raw);
+  });
+
+  it.each(["2.5", "3"])("rejects canonical non-10 selected leverage %p at the bot boundary", (value) => {
+    const result = BotConfigSchema.safeParse({ bot: { selected_leverage: value } });
+
+    expect(result.success).toBe(false);
   });
 
   it.each(["2.0", "01", "0", "-1", "ten"])(
@@ -69,14 +82,14 @@ describe("selected leverage configuration", () => {
     });
   });
 
-  it("stores the exact canonical representation and restores it", () => {
+  it("stores the exact canonical 10 representation and restores it", () => {
     withTemporaryConfig("", (path) => {
       const store = new ConfigStore(path);
-      const config = BotConfigSchema.parse({ bot: { selected_leverage: "2.5" } });
+      const config = BotConfigSchema.parse({ bot: { selected_leverage: "10" } });
       store.write(config);
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- This exact file is a child of this test's fresh mkdtemp directory.
-      expect(readFileSync(path, "utf8")).toContain('selected_leverage = "2.5"');
-      expect(selectedLeverageCanonical(store.read())).toBe("2.5");
+      expect(readFileSync(path, "utf8")).toContain('selected_leverage = "10"');
+      expect(selectedLeverageCanonical(store.read())).toBe("10");
     });
   });
 

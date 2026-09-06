@@ -147,15 +147,15 @@ describe("ConfigStore", () => {
     expect(reloaded.symbols.enabled).toEqual(["BTC/USDC", "ETH/USDC", "SOL/USDC"]);
   });
 
-  it("writes and reads canonical selected leverage without changing it", () => {
+  it("writes and reads canonical selected leverage 10 without changing it", () => {
     const path = nodePath.join(temporaryDirectory, "selected-leverage.toml");
     const store = new ConfigStore(path);
-    const configured = store.validate({ bot: { selected_leverage: "2.5" } });
+    const configured = store.validate({ bot: { selected_leverage: "10" } });
 
     store.write(configured);
 
-    expect(fileSystem.readFileSync(path, "utf8")).toContain('selected_leverage = "2.5"');
-    expect(store.read().bot.selected_leverage.canonical).toBe("2.5");
+    expect(fileSystem.readFileSync(path, "utf8")).toContain('selected_leverage = "10"');
+    expect(store.read().bot.selected_leverage.canonical).toBe("10");
   });
 
   it("writes the default selected leverage as canonical 10", () => {
@@ -167,9 +167,11 @@ describe("ConfigStore", () => {
     expect(fileSystem.readFileSync(path, "utf8")).toContain('selected_leverage = "10"');
   });
 
-  it("validate() rejects noncanonical, non-string, and forged raw selected leverage values", () => {
+  it("validate() rejects non-10, noncanonical, non-string, and forged raw selected leverage values", () => {
     const store = new ConfigStore(nodePath.join(temporaryDirectory, "selected-leverage-validation.toml"));
     const rawCandidates: readonly unknown[] = [
+      { bot: { selected_leverage: "2.5" } },
+      { bot: { selected_leverage: "3" } },
       { bot: { selected_leverage: "2.0" } },
       { bot: { selected_leverage: "01" } },
       { bot: { selected_leverage: 2.5 } },
@@ -186,6 +188,33 @@ describe("ConfigStore", () => {
       expect(caught).toBeInstanceOf(ConfigValidationError);
       expect(requireValidationError(caught).fieldErrors["bot.selected_leverage"]).toBeDefined();
     }
+  });
+
+  it("rejects an authentic non-10 selected leverage before serialization or atomic write", () => {
+    const calls: string[] = [];
+    const store = new ConfigStore(nodePath.join(temporaryDirectory, "non-10-selected-leverage.toml"), {
+      stringify: () => {
+        calls.push("stringify");
+        return "";
+      },
+      atomicWrite: () => {
+        calls.push("atomicWrite");
+      },
+    });
+    const valid = store.validate({ bot: { selected_leverage: "10" } });
+    const nonTen = {
+      ...valid,
+      bot: { ...valid.bot, selected_leverage: SelectedLeverage.parse("2.5") },
+    };
+
+    const write = (next: BotConfig): void => {
+      store.write(next);
+    };
+
+    expect(() => {
+      Reflect.apply(write, undefined, [nonTen]);
+    }).toThrow(ConfigValidationError);
+    expect(calls).toEqual([]);
   });
 
   it("rejects a lossy selected leverage codec before filesystem side effects", () => {
@@ -346,6 +375,23 @@ describe("ConfigStore", () => {
 
     expect(caught).toBeInstanceOf(ConfigValidationError);
     expect(requireValidationError(caught).fieldErrors["bot.selected_leverage"]).toBeDefined();
+    expect(calls).toEqual([]);
+  });
+
+  it("rejects an authentic non-10 live selected leverage before recording an audit entry", () => {
+    const calls: string[] = [];
+    const store = new ConfigStore(nodePath.join(temporaryDirectory, "non-10-live-selected-leverage.toml"), {
+      appendText: () => {
+        calls.push("appendAudit");
+      },
+    });
+    const live = store.validate({ bot: { mode: "live", selected_leverage: "10" } });
+    const nonTenLive: unknown = {
+      ...live,
+      bot: { ...live.bot, selected_leverage: SelectedLeverage.parse("3") },
+    };
+
+    expect(() => store.writeAfterTypedLive(nonTenLive, "LIVE")).toThrow(ConfigValidationError);
     expect(calls).toEqual([]);
   });
 

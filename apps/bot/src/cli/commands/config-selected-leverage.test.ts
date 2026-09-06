@@ -21,15 +21,15 @@ describe("config show selected leverage", () => {
     logSpy.mockRestore();
   });
 
-  it("shows canonical selected leverage as a TOML string", async () => {
+  it("shows canonical selected leverage 10 as a TOML string", async () => {
     const directory = mkdtempSync(path.join(tmpdir(), "mm-cli-selected-leverage-"));
     const configPath = path.join(directory, "config.toml");
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- This exact file is a child of this test's fresh mkdtemp directory.
-    writeFileSync(configPath, '[bot]\nselected_leverage = "2.5"\n', "utf8");
+    writeFileSync(configPath, '[bot]\nselected_leverage = "10"\n', "utf8");
     try {
       const exitCode = await configCommand(parseArgv(["config", "show", `--config=${configPath}`]), {});
       expect(exitCode).toBe(0);
-      expect(output.join("\n")).toContain('selected_leverage = "2.5"');
+      expect(output.join("\n")).toContain('selected_leverage = "10"');
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

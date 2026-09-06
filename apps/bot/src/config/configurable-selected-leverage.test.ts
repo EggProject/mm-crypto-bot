@@ -36,17 +36,24 @@ describe("risk maximum leverage configuration", () => {
   });
 });
 
-describe("configurable selected leverage configuration", () => {
+describe("fixed selected leverage configuration", () => {
   it("defaults the omitted selected leverage to exact canonical 10", () => {
     expect(loadBotConfig().bot.selected_leverage.canonical).toBe("10");
   });
 
-  it("accepts canonical 2.5 through a paper configuration load without numeric conversion", async () => {
+  it.each(["2.5", "3"])("rejects canonical non-10 %s through a paper configuration load", async (value) => {
     const directory = mkdtempSync(nodePath.join(tmpdir(), "mm-bot-config-"));
     const path = nodePath.join(directory, "paper-selected-leverage.toml");
-    await writeTemporaryFixture(path, '[bot]\nmode = "paper"\nselected_leverage = "2.5"\n');
+    await writeTemporaryFixture(path, `[bot]\nmode = "paper"\nselected_leverage = "${value}"\n`);
     try {
-      expect(loadBotConfig(path).bot.selected_leverage.canonical).toBe("2.5");
+      let caught: unknown;
+      try {
+        loadBotConfig(path);
+      } catch (error: unknown) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(ConfigError);
+      expect(requireConfigError(caught).path).toBe("bot.selected_leverage");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

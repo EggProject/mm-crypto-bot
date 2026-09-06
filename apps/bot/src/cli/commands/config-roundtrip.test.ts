@@ -22,7 +22,7 @@ const fullNonDefaultConfig = `
 mode = "paper"
 log_level = "debug"
 state_file = ${formatTomlFixtureString(hostileStateFile)}
-selected_leverage = "2.5"
+selected_leverage = "10"
 
 [exchange]
 id = "mock"
@@ -176,7 +176,7 @@ it("show losslessly round-trips every approved field and escapes basic strings",
     expect(emitted).toContain(`state_file = ${formatTomlFixtureString(hostileStateFile)}`);
     expect(emitted).toContain(`symbols = ["BTC/USDC", ${formatTomlFixtureString(hostileStrategySymbol)}]`);
     expect(emitted).toContain(`log_dir = ${formatTomlFixtureString(hostileLogDirectory)}`);
-    expect(emitted).toContain('selected_leverage = "2.5"');
+    expect(emitted).toContain('selected_leverage = "10"');
     expect(emitted).not.toContain("unapproved_property");
   } finally {
     output.mockRestore();

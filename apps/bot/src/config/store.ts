@@ -220,11 +220,7 @@ export class ConfigStore {
     const reparsedConfig = this.validate(reparsed);
     const reparsedTomlConfig = toTomlSerializableConfig(reparsedConfig);
     if (!hasSameTomlRepresentation(serializedInput, reparsedTomlConfig)) {
-      const path =
-        serializedInput.bot.selected_leverage === reparsedTomlConfig.bot.selected_leverage
-          ? "<round-trip>"
-          : "bot.selected_leverage";
-      throw roundTripValidationError(path);
+      throw roundTripValidationError("<round-trip>");
     }
 
     // 4) Biztosítsuk, hogy a cél-könyvtár létezik (a user adhatott

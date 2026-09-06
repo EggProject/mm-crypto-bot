@@ -8,7 +8,15 @@ export const SelectedLeverageConfigSchema = z
   .default("10")
   .transform((value, context) => {
     try {
-      return SelectedLeverage.parse(value);
+      const selectedLeverage = SelectedLeverage.parse(value);
+      if (selectedLeverage.canonical !== "10") {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Selected leverage must be exactly canonical 10.",
+        });
+        return z.NEVER;
+      }
+      return selectedLeverage;
     } catch {
       context.addIssue({
         code: z.ZodIssueCode.custom,
