@@ -1,7 +1,16 @@
-// vitest.config.ts — @mm/exchange teszt konfiguráció
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "vitest/config";
 
+const packageRoot = fileURLToPath(new URL(".", import.meta.url));
+
 export default defineConfig({
+  root: packageRoot,
+  resolve: {
+    alias: {
+      "bun:test": "vitest",
+    },
+  },
   test: {
     environment: "node",
     include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
@@ -9,6 +18,7 @@ export default defineConfig({
       provider: "v8",
       include: ["src/**/*.ts"],
       exclude: ["src/**/*.test.ts", "src/index.ts"],
+      reportsDirectory: "coverage",
       reporter: ["text", "html", "lcov"],
       thresholds: {
         lines: 100,
