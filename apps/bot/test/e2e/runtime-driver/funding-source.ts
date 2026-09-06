@@ -27,7 +27,7 @@ async function runFundingSource(): Promise<void> {
   const handle = source.subscribe(market, (snapshot) => {
     ticks += 1;
     assertCondition(snapshot.dydx.symbol === "BTC-USD", "dYdX funding symbol mismatch");
-    assertCondition(snapshot.cex.symbol === "BTCUSDT", "CEX funding symbol mismatch");
+    assertCondition(snapshot.cex.symbol === "BTC-USD", "CEX funding symbol mismatch");
   });
   await Bun.sleep(1050);
   handle.close();
