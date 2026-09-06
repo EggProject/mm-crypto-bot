@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { LatencyStats } from "@mm-crypto-bot/exchange";
-import { ExactRational } from "@mm-crypto-bot/numeric";
+import { ExactNumericError, ExactRational } from "@mm-crypto-bot/numeric";
 
 import {
   ArbLatencyCalculationError,
@@ -105,6 +105,29 @@ type SummaryRationalField =
   | "maxSpreadBps"
   | "totalTheoreticalPnlUsd"
   | "averagePnlPerOpportunityUsd";
+
+interface OpportunityQuoteRationalMutation {
+  readonly quote: "exchangeA" | "exchangeB";
+  readonly field: "bid" | "ask";
+}
+
+function expectAuthenticityCalculationError(action: () => unknown): void {
+  try {
+    action();
+  } catch (error: unknown) {
+    expect(error).toBeInstanceOf(ArbLatencyCalculationError);
+    if (error instanceof ArbLatencyCalculationError) {
+      expect(error.code).toBe("INVALID_EXACT_RATIONAL");
+      expect(error.cause).toBeInstanceOf(ExactNumericError);
+      if (error.cause instanceof ExactNumericError) {
+        expect(error.cause.code).toBe("INVALID_RATIONAL");
+        return;
+      }
+    }
+  }
+
+  throw new Error("Expected an authentic exact rational calculation error.");
+}
 
 describe("exact arb latency calculations", () => {
   it("calculates immutable directional spreads with the established asymmetric denominator", () => {
@@ -249,6 +272,23 @@ describe("exact arb latency calculations", () => {
           ),
         "INVALID_EXACT_RATIONAL",
       );
+    }
+  });
+
+  it("rejects every unauthentic opportunity quote rational at the public summary boundary", () => {
+    const opportunityQuoteRationalMutations: readonly OpportunityQuoteRationalMutation[] = [
+      { quote: "exchangeA", field: "bid" },
+      { quote: "exchangeA", field: "ask" },
+      { quote: "exchangeB", field: "bid" },
+      { quote: "exchangeB", field: "ask" },
+    ];
+
+    for (const mutation of opportunityQuoteRationalMutations) {
+      const malformedOpportunity = opportunity(1, "1", "1", true);
+      expect(
+        Reflect.set(malformedOpportunity[mutation.quote], mutation.field, unauthenticExactRational()),
+      ).toBe(true);
+      expectAuthenticityCalculationError(() => summarizeExactOpportunities([malformedOpportunity]));
     }
   });
 
