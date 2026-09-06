@@ -120,6 +120,52 @@ describe("fetch* metódusok", () => {
     ]);
   });
 
+  it("fetchPositions forwards supplied symbols and retains only complete short positions", async () => {
+    let forwardedSymbols: readonly string[] | undefined;
+    const supported = new BybitEuFeed({
+      apiKey: "x",
+      secret: "y",
+      rateLimitMs: 100,
+      exchange: makeFakeExchange({
+        has: { fetchPositions: true },
+        fetchPositions: (symbols) => {
+          forwardedSymbols = symbols;
+          return Promise.resolve<readonly RawPositionPayload[]>([
+            { symbol: "BTC/USDC", side: "long" },
+            {
+              symbol: "ETH/USDC",
+              side: "short",
+              contracts: 2,
+              entryPrice: 100,
+              markPrice: 99,
+              unrealizedPnl: 2,
+              lastUpdateTimestamp: 42,
+            },
+          ]);
+        },
+      }),
+    });
+    const symbols = [asSymbol("BTC/USDC"), asSymbol("ETH/USDC")] as const;
+
+    await supported.open();
+    try {
+      expect(await supported.fetchPositions(symbols)).toEqual([
+        {
+          symbol: asSymbol("ETH/USDC"),
+          side: "short",
+          quantity: 2,
+          entryPrice: 100,
+          markPrice: 99,
+          unrealizedPnl: 2,
+          updateTimestamp: 42,
+        },
+      ]);
+      expect(forwardedSymbols).toEqual(["BTC/USDC", "ETH/USDC"]);
+    } finally {
+      await supported.close();
+    }
+  });
+
   /**
    * Per-package 100% OWN coverage — PR #220 fix.
    *

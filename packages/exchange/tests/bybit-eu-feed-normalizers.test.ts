@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   normalizeTicker,
   normalizeOrderBook,
   normalizeTrade,
   normalizeMarketMeta,
   normalizeBalances,
+  normalizeExecution,
   normalizeOrder,
 } from "../src/bybit-eu-normalizers.js";
 import { BybitEuFeed } from "../src/bybit-eu-feed.js";
@@ -85,15 +86,37 @@ describe("Bybit EU feed normalizers", () => {
       expect(orderBook.bids[0]?.amount).toBe(1);
       expect(orderBook.asks[0]?.price).toBe(50_100);
     });
-
     it("üres bids/asks esetén üres tömböt ad", () => {
       const raw: RawOrderBookPayload = { timestamp: 1, nonce: 2, bids: [], asks: [] };
       const orderBook = normalizeOrderBook(raw, BTC_USDC);
       expect(orderBook.bids).toHaveLength(0);
       expect(orderBook.asks).toHaveLength(0);
     });
+    it("defaults omitted metadata and empty typed levels", () => {
+      vi.useFakeTimers({ now: 1_700_000_000_000 });
+      try {
+        const orderBook = normalizeOrderBook(
+          {
+            bids: [[], [undefined, undefined]],
+            asks: [[], [undefined, undefined]],
+          },
+          BTC_USDC,
+        );
+        expect(orderBook.timestamp).toBe(1_700_000_000_000);
+        expect(orderBook.nonce).toBe(0);
+        expect(orderBook.bids).toEqual([
+          { price: 0, amount: 0 },
+          { price: 0, amount: 0 },
+        ]);
+        expect(orderBook.asks).toEqual([
+          { price: 0, amount: 0 },
+          { price: 0, amount: 0 },
+        ]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
-
   describe("normalizeTrade", () => {
     it("a 'sell' side-ot 'sell'-re normalizálja", () => {
       const raw: RawTradePayload = { id: "t1", timestamp: 1, price: 100, amount: 1, side: "sell" };
@@ -133,11 +156,11 @@ describe("Bybit EU feed normalizers", () => {
       expect(market.minCost).toBe(1);
     });
 
-    it("undefined precision esetén default értékeket ad", () => {
+    it("defaults omitted precision values", () => {
       const raw: RawMarketPayload = {
         base: "X",
         quote: "Y",
-        precision: { amount: 0, price: 0 },
+        precision: {},
         limits: { amount: {}, cost: {} },
       };
       const market = normalizeMarketMeta(raw, BTC_USDC);
@@ -173,6 +196,34 @@ describe("Bybit EU feed normalizers", () => {
       const raw: RawBalancesPayload = { BTC: undefined };
       const balances = normalizeBalances(raw);
       expect(balances).toHaveLength(0);
+    });
+  });
+
+  describe("normalizeExecution", () => {
+    it("retains a sell execution with its public fields", () => {
+      const execution = normalizeExecution({
+        id: "execution-1",
+        order: "order-1",
+        symbol: "BTC/USDC",
+        side: "sell",
+        amount: 0.25,
+        price: 60_000,
+        fee: { cost: 1.5, currency: "USDC" },
+        timestamp: 1_700_000_000_000,
+      });
+
+      expect(execution).toEqual({
+        executionId: "execution-1",
+        clientOrderId: undefined,
+        exchangeOrderId: "order-1",
+        symbol: BTC_USDC,
+        side: "sell",
+        quantity: 0.25,
+        price: 60_000,
+        fee: 1.5,
+        feeCurrency: "USDC",
+        timestamp: 1_700_000_000_000,
+      });
     });
   });
 
