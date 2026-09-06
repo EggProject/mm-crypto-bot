@@ -1,6 +1,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { SelectedLeverage } from "@mm-crypto-bot/numeric";
 import { DEFAULT_BOT_CONFIG } from "../../../src/config/defaults.js";
 import type { BotConfig } from "../../../src/config/schema.js";
 import {
@@ -239,6 +240,98 @@ function exerciseLivePersistenceBoundaries(directory: string): void {
     readFileSync(`${configPath}.audit.log`, "utf8").trim().split("\n").length === 2,
     "rejected selected leverage wrote an audit entry",
   );
+
+  const rejectedConfigPath = path.join(directory, "rejected-live-mm-bot.toml");
+  const rejectedAuditRecords: Record<string, unknown>[] = [];
+  const rejectedWriteCalls: string[] = [];
+  const rejectedStore = new ConfigStore(rejectedConfigPath, {
+    appendText: captureAuditRecord(rejectedAuditRecords),
+    stringify: () => {
+      rejectedWriteCalls.push("stringify");
+      return "serialized";
+    },
+    atomicWrite: () => {
+      rejectedWriteCalls.push("atomicWrite");
+    },
+  });
+  const authenticNonTenLiveConfig: BotConfig = {
+    ...liveConfig,
+    bot: { ...liveConfig.bot, selected_leverage: SelectedLeverage.parse("3") },
+  };
+  const authenticNonTenError = expectValidationError(
+    () => rejectedStore.writeAfterTypedLive(authenticNonTenLiveConfig, "LIVE"),
+    "authentic non-10 live selected leverage",
+  );
+  assertExactFieldError(
+    authenticNonTenError,
+    "bot.selected_leverage",
+    "Selected leverage must be exactly canonical 10.",
+  );
+  const writeRejectedConfig = (next: BotConfig): void => {
+    rejectedStore.write(next);
+  };
+  const forgedWriteError = expectValidationError(
+    () => Reflect.apply(writeRejectedConfig, undefined, [forgedLiveConfig]),
+    "forged selected leverage write",
+  );
+  assertExactFieldError(forgedWriteError, "bot.selected_leverage", expectedSelectedLeverageError);
+  assertCondition(rejectedAuditRecords.length === 0, "non-10 selected leverage wrote an audit entry");
+  assertCondition(rejectedWriteCalls.length === 0, "rejected selected leverage reached config persistence");
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- The E2E target is derived from this process fresh temporary directory.
+  assertCondition(!existsSync(rejectedConfigPath), "rejected selected leverage created a config target");
+
+  const invalidLiveCandidates = [
+    {
+      // eslint-disable-next-line unicorn/no-null -- The public E2E boundary preserves the explicit null root contract under test.
+      candidate: null,
+      field: "<root>",
+      message: "Expected object, received null",
+    },
+    {
+      // eslint-disable-next-line unicorn/no-null -- The public E2E boundary preserves the explicit null bot contract under test.
+      candidate: { bot: null },
+      field: "bot",
+      message: "Expected object, received null",
+    },
+    {
+      candidate: { bot: { mode: "live", selected_leverage: "invalid" } },
+      field: "bot.selected_leverage",
+      message: "Selected leverage must be a canonical positive decimal string.",
+    },
+  ] as const;
+  for (const [index, invalidLiveCandidate] of invalidLiveCandidates.entries()) {
+    const invalidConfigPath = path.join(directory, `invalid-live-${String(index)}.toml`);
+    const invalidAuditRecords: Record<string, unknown>[] = [];
+    const invalidWriteCalls: string[] = [];
+    const invalidStore = new ConfigStore(invalidConfigPath, {
+      appendText: captureAuditRecord(invalidAuditRecords),
+      stringify: () => {
+        invalidWriteCalls.push("stringify");
+        return "serialized";
+      },
+      atomicWrite: () => {
+        invalidWriteCalls.push("atomicWrite");
+      },
+    });
+    const invalidLiveError = expectValidationError(
+      () => invalidStore.writeAfterTypedLive(invalidLiveCandidate.candidate, "LIVE"),
+      `invalid live candidate ${String(index)}`,
+    );
+    assertExactFieldError(invalidLiveError, invalidLiveCandidate.field, invalidLiveCandidate.message);
+    assertCondition(
+      invalidAuditRecords.length === 0,
+      `invalid live candidate ${String(index)} wrote an audit entry`,
+    );
+    assertCondition(
+      invalidWriteCalls.length === 0,
+      `invalid live candidate ${String(index)} reached config persistence`,
+    );
+    assertCondition(
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- The E2E target is derived from this process fresh temporary directory.
+      !existsSync(invalidConfigPath),
+      `invalid live candidate ${String(index)} created a config target`,
+    );
+  }
 
   const nonLiveError = expectError(
     () => store.writeAfterTypedLive(DEFAULT_BOT_CONFIG, "LIVE"),
