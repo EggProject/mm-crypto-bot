@@ -17,7 +17,7 @@ import {
   type SupportedExchangeId,
 } from "./latency-monitor.js";
 
-// === Pure függvény tesztek (statisztikai helper-ek) ===
+// === Pure-function tests (statistical helpers) ===
 
 describe("percentile", () => {
   it("returns NaN on empty input", () => {
@@ -34,7 +34,7 @@ describe("percentile", () => {
     // 1..100 → p95 = 95 (nearest-rank)
     const values = Array.from({ length: 100 }, (_, index) => index + 1);
     expect(percentile(values, 95)).toBe(95);
-    // p50 = 50 (medián)
+    // p50 = 50 (median)
     expect(percentile(values, 50)).toBe(50);
     // p99 = 99
     expect(percentile(values, 99)).toBe(99);
@@ -89,7 +89,7 @@ describe("round2", () => {
   });
 });
 
-// === aggregateStats tesztek ===
+// === aggregateStats tests ===
 
 describe("aggregateStats", () => {
   it("classifies samples by type and aggregates correctly", () => {
