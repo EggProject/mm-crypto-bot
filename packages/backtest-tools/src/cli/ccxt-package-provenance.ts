@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,8 +17,11 @@ export interface CcxtPackageProvenanceDependencies {
 
 const defaultDependencies: CcxtPackageProvenanceDependencies = {
   readExpectedManifestText: async () =>
-    await Bun.file(fileURLToPath(new URL("../../package.json", import.meta.url))).text(),
-  readInstalledPackageText: async (filePath) => await Bun.file(filePath).text(),
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The module-relative manifest URL is fixed.
+    await readFile(fileURLToPath(new URL("../../package.json", import.meta.url)), "utf8"),
+  readInstalledPackageText: async (filePath) =>
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The resolver validates a local file URL first.
+    await readFile(filePath, "utf8"),
   resolveSpecifier: (specifier) => import.meta.resolve(specifier),
 };
 

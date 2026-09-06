@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 
 import {
   CcxtPackageProvenanceError,
@@ -8,22 +8,6 @@ import {
 
 const resolvedCcxtModule = "file:///workspace/node_modules/ccxt/js/ccxt.js";
 const activeManifest = '{"dependencies":{"ccxt":"4.5.75"}}';
-
-if (typeof Bun === "undefined") {
-  Object.defineProperty(globalThis, "Bun", {
-    configurable: true,
-    value: {
-      file: (filePath: string) => ({
-        text: () =>
-          Promise.resolve(
-            filePath.endsWith("/packages/backtest-tools/package.json")
-              ? activeManifest
-              : '{"name":"ccxt","version":"4.5.75"}',
-          ),
-      }),
-    },
-  });
-}
 
 function dependenciesWith(
   packageJsonText: string,
