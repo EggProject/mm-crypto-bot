@@ -68,6 +68,7 @@ run_gate "coverage tooling typecheck" bun run typecheck:coverage-tools
 run_gate "bot config command Vitest 100% statements/branches/functions/lines" run_node_vitest_gate bun run --filter @mm-crypto-bot/bot coverage:config-command
 run_gate "exchange Bybit EU adapter Vitest 100% statements/branches/functions/lines" run_node_vitest_gate bun run --filter @mm-crypto-bot/exchange coverage:bybit-eu-adapter
 run_gate "bot runtime scope Node Vitest 100% statements/branches/functions/lines" bun run coverage:scope
+run_gate "bot E2E preload Node Vitest 100% statements/branches/functions/lines" run_node_vitest_gate bun run coverage:bot:e2e-preload
 
 run_gate "@mm-crypto-bot/paper Node Vitest LCOV" run_node_vitest_gate bun run --filter @mm-crypto-bot/paper coverage
 run_gate "@mm-crypto-bot/exchange Bun LCOV" bun run --filter @mm-crypto-bot/exchange coverage

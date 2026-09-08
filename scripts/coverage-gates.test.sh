@@ -239,6 +239,7 @@ run_full_case() {
     local command_log
     command_log="$(< "$root/coverage-command.log")"
     assert_contains "$command_log" "coverage:scope|NODE=/tmp/bun-node-synthetic|npm_node_execpath=/tmp/bun-node-exec-synthetic|npm_execpath=/tmp/bun-exec-synthetic|bun_node_path=present"
+    assert_contains "$command_log" "coverage:bot:e2e-preload|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
     assert_contains "$command_log" "--filter @mm-crypto-bot/paper coverage|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
     assert_contains "$command_log" "--filter @mm-crypto-bot/shared coverage|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
     assert_contains "$command_log" "--filter @mm-crypto-bot/backtest coverage|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
@@ -267,12 +268,15 @@ assert_merge_inputs_exclude_e2e() {
 }
 
 assert_root_coverage_contract() {
-  local coverage_full coverage_infra coverage_merge coverage_scope per_package_script scope_config foundation_package
+  local coverage_full coverage_infra coverage_merge coverage_preload coverage_scope per_package_script preload_config scope_config foundation_package
   coverage_merge="$(cd "$REPO_ROOT" && "$BUN_BIN" --eval 'const packageJson = await Bun.file("package.json").json(); process.stdout.write(packageJson.scripts["coverage:merge"]);')"
   coverage_infra="$(cd "$REPO_ROOT" && "$BUN_BIN" --eval 'const packageJson = await Bun.file("package.json").json(); process.stdout.write(packageJson.scripts["test:coverage-infra"]);')"
   coverage_scope="$(cd "$REPO_ROOT" && "$BUN_BIN" --eval 'const packageJson = await Bun.file("package.json").json(); process.stdout.write(packageJson.scripts["coverage:scope"]);')"
+  coverage_preload="$(cd "$REPO_ROOT" && "$BUN_BIN" --eval 'const packageJson = await Bun.file("package.json").json(); process.stdout.write(packageJson.scripts["coverage:bot:e2e-preload"]);')"
   assert_contains "$coverage_infra" "bash scripts/coverage-gates.test.sh"
   [[ "$coverage_scope" == "bun scripts/coverage-tools/verify-bot-runtime-scope.ts && sh -c 'PATH=\"\${PATH#/tmp/bun-node-*:}\"; exec node ./node_modules/vitest/vitest.mjs run --config scripts/coverage-tools/vitest.bot-runtime-scope.config.mjs --coverage'" ]] || fail "coverage:scope must run the direct verifier before its exact Node Vitest V8 gate"
+  [[ "$coverage_preload" == "sh -c 'unset NODE npm_node_execpath npm_execpath; PATH=\"\${PATH#/tmp/bun-node-*:}\"; exec node ./node_modules/vitest/vitest.mjs run --config scripts/coverage-tools/vitest.bot-e2e-preload.config.mjs --coverage'" ]] || fail "coverage:bot:e2e-preload must use the exact direct Node Vitest V8 gate"
+  [[ "$coverage_preload" != *"bun run coverage:bot:e2e-preload"* ]] || fail "coverage:bot:e2e-preload must not recursively invoke itself"
   scope_config="$(< "$REPO_ROOT/scripts/coverage-tools/vitest.bot-runtime-scope.config.mjs")"
   assert_contains "$scope_config" 'include: ["scripts/coverage-tools/bot-runtime-scope.test.ts"]'
   assert_contains "$scope_config" 'include: ["scripts/coverage-tools/verify-bot-runtime-scope.ts"]'
@@ -284,8 +288,25 @@ assert_root_coverage_contract() {
   assert_contains "$scope_config" 'branches: 100'
   assert_contains "$scope_config" 'functions: 100'
   assert_contains "$scope_config" 'lines: 100'
+  preload_config="$(< "$REPO_ROOT/scripts/coverage-tools/vitest.bot-e2e-preload.config.mjs")"
+  assert_contains "$preload_config" 'include: ['
+  assert_contains "$preload_config" '"scripts/coverage-tools/bot-e2e-preload-runtime.test.ts"'
+  assert_contains "$preload_config" '"scripts/coverage-tools/bot-e2e-preload.test.ts"'
+  assert_contains "$preload_config" 'pool: "forks"'
+  assert_contains "$preload_config" 'maxWorkers: 1'
+  assert_contains "$preload_config" 'fileParallelism: false'
+  assert_contains "$preload_config" 'include: ["scripts/coverage-tools/bot-e2e-preload-runtime.ts"]'
+  assert_contains "$preload_config" 'provider: "v8"'
+  assert_contains "$preload_config" 'reporter: ["text", "json-summary", "lcov"]'
+  assert_contains "$preload_config" 'reportsDirectory: "/tmp/mm-crypto-bot-bot-e2e-preload-coverage"'
+  [[ "$preload_config" != *"exclude:"* ]] || fail "preload V8 config must not exclude source paths"
+  assert_contains "$preload_config" 'statements: 100'
+  assert_contains "$preload_config" 'branches: 100'
+  assert_contains "$preload_config" 'functions: 100'
+  assert_contains "$preload_config" 'lines: 100'
   coverage_full="$(< "$REPO_ROOT/scripts/coverage-full.sh")"
   assert_contains "$coverage_full" 'run_gate "bot runtime scope Node Vitest 100% statements/branches/functions/lines" bun run coverage:scope'
+  assert_contains "$coverage_full" 'run_gate "bot E2E preload Node Vitest 100% statements/branches/functions/lines" run_node_vitest_gate bun run coverage:bot:e2e-preload'
   assert_merge_inputs_exclude_e2e "$coverage_merge" || fail "coverage:merge includes an E2E LCOV input"
   if assert_merge_inputs_exclude_e2e "$coverage_merge apps/bot/coverage/e2e/lcov.info"; then
     fail "coverage:merge E2E rejection fixture accepted bot E2E input"
