@@ -124,4 +124,10 @@ export {
   OhlcStream,
   RingBuffer,
 } from "./ohlc-stream.js";
-export type { OhlcBar, OhlcStreamBarEvent, OhlcStreamConfig, OhlcStreamErrorEvent } from "./ohlc-stream.js";
+export type {
+  OhlcBar,
+  OhlcStreamBarEvent,
+  OhlcStreamConfig,
+  OhlcStreamErrorEvent,
+  OhlcStreamOptions,
+} from "./ohlc-stream.js";

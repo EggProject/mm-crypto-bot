@@ -1,10 +1,60 @@
 // Pure OhlcStream helpers and RingBuffer behavior.
 import { describe, expect, it } from "bun:test";
+import { EventEmitter } from "node:events";
 
-import { alignToTimeframe, barsToCandles, barsToOhlcv, RingBuffer, type OhlcBar } from "./ohlc-stream.js";
+import {
+  alignToTimeframe,
+  barsToCandles,
+  barsToOhlcv,
+  OhlcStream,
+  RingBuffer,
+  type OhlcBar,
+  type OhlcStreamBarEvent,
+  type OhlcStreamErrorEvent,
+} from "./ohlc-stream.js";
+import type { OhlcStreamOptions } from "./index.js";
+import type { FeedListener } from "./feed.js";
 import { asSymbol } from "./symbols.js";
+import { MockExchangeFeed } from "./testing/mock-feed.js";
+import type { Ohlcv, Symbol, Trade } from "./types.js";
 
 const SYM = asSymbol("BTC/USDT");
+const OTHER_SYM = asSymbol("ETH/USDT");
+
+class EventInjectingFeed extends MockExchangeFeed {
+  subscribeTradesCalls = 0;
+
+  override async subscribeTrades(symbol: Symbol, listener: FeedListener): Promise<number> {
+    this.subscribeTradesCalls += 1;
+    listener({ kind: "ticker", payload: await this.fetchTickerSnapshot(symbol) });
+    listener({ kind: "trade", payload: tradeFor(symbol) });
+    return super.subscribeTrades(symbol, listener);
+  }
+}
+
+class UnsubscribeFailureFeed extends MockExchangeFeed {
+  constructor(private readonly failure: unknown) {
+    super();
+  }
+
+  private async rejectWithFailure(): Promise<never> {
+    await Promise.resolve();
+    throw this.failure;
+  }
+
+  override unsubscribe(_id: number): Promise<void> {
+    return this.rejectWithFailure();
+  }
+}
+
+function tradeFor(symbol: Symbol, timestamp = 1_700_000_400_000): Trade {
+  return { id: `trade-${String(timestamp)}`, symbol, timestamp, price: 100, amount: 1, takerSide: "buy" };
+}
+
+function createEventEmitter(): EventEmitter {
+  // eslint-disable-next-line unicorn/prefer-event-target -- OhlcStream exposes the Node EventEmitter contract.
+  return new EventEmitter();
+}
 
 describe("RingBuffer", () => {
   it("konstruktor elutasítja a nem-pozitív kapacitást", () => {
@@ -26,6 +76,15 @@ describe("RingBuffer", () => {
     expect(rb.toArray()).toEqual([1, 2, 3]);
   });
 
+  it("preserves explicit undefined values before and after overflow", () => {
+    const rb = new RingBuffer<number | undefined>(2);
+    rb.push(undefined);
+    rb.push(1);
+    expect(rb.toArray()).toEqual([undefined, 1]);
+    rb.push(2);
+    expect(rb.toArray()).toEqual([1, 2]);
+  });
+
   it("túlcsordulás: a legrégebbi elem kiesik, sorrend megmarad", () => {
     const rb = new RingBuffer<number>(3);
     rb.push(1);
@@ -39,11 +98,11 @@ describe("RingBuffer", () => {
   });
 
   it("values() iterátor a megfelelő sorrendben adja vissza az elemeket", () => {
-    const rb = new RingBuffer<number>(3);
-    rb.push("a" as unknown as number);
-    rb.push("b" as unknown as number);
-    rb.push("c" as unknown as number);
-    rb.push("d" as unknown as number);
+    const rb = new RingBuffer<string>(3);
+    rb.push("a");
+    rb.push("b");
+    rb.push("c");
+    rb.push("d");
     const seen = rb.toArray();
     expect(seen).toEqual(["b", "c", "d"]);
   });
@@ -76,6 +135,103 @@ describe("alignToTimeframe", () => {
     // 1_700_000_400_000 / 300_000 = 5666668, 5666668 * 300_000 = 1_700_000_400_000 — IGEN, pontos.
     const alignedGrid5m = 1_700_000_400_000;
     expect(alignToTimeframe(alignedGrid5m, "5m")).toBe(alignedGrid5m);
+  });
+
+  it("rejects an unknown public timeframe", () => {
+    expect(() => alignToTimeframe(1_700_000_123_456, "unsupported")).toThrow(
+      "Unsupported timeframe: unsupported",
+    );
+  });
+});
+
+describe("OhlcStream public boundaries", () => {
+  it("rejects an invalid timeframe option before it invokes the feed", () => {
+    const feed = new EventInjectingFeed();
+    const options: OhlcStreamOptions = { timeframes: ["unsupported"] };
+    expect(() => new OhlcStream(feed, createEventEmitter(), options)).toThrow(
+      "Unsupported timeframe: unsupported",
+    );
+    expect(feed.subscribeTradesCalls).toBe(0);
+  });
+
+  it("normalizes a valid scalar timeframe option", () => {
+    const options: OhlcStreamOptions = { timeframes: "1m" };
+    const stream = new OhlcStream(new MockExchangeFeed(), createEventEmitter(), options);
+    expect(stream.config.timeframes).toEqual(["1m"]);
+  });
+
+  it("ignores a ticker event and processes the subsequent real trade from a valid feed", async () => {
+    const feed = new EventInjectingFeed();
+    feed.setOhlcv(SYM, "1m", []);
+    const stream = new OhlcStream(feed, createEventEmitter(), {
+      timeframes: ["1m"],
+      bufferSize: 2,
+      symbols: [SYM],
+    });
+    await stream.start();
+    stream.ingest(tradeFor(SYM, 1_700_000_460_000));
+    expect(feed.subscribeTradesCalls).toBe(1);
+    expect(stream.getBars(SYM, "1m")).toHaveLength(1);
+    await stream.stop();
+  });
+
+  it("normalizes Error and non-Error unsubscribe failures into public error events", async () => {
+    const cases: readonly { readonly failure: unknown; readonly message: string }[] = [
+      { failure: new Error("unsubscribe error"), message: "unsubscribe error" },
+      { failure: "unsubscribe text", message: "unsubscribe text" },
+    ];
+    for (const { failure, message } of cases) {
+      const emitter = createEventEmitter();
+      const errors: OhlcStreamErrorEvent[] = [];
+      emitter.on("error", (event: OhlcStreamErrorEvent) => {
+        errors.push(event);
+      });
+      const stream = new OhlcStream(new UnsubscribeFailureFeed(failure), emitter, {
+        timeframes: ["1m"],
+        bufferSize: 2,
+        symbols: [SYM],
+      });
+      await stream.start();
+      await stream.stop();
+      expect(errors).toHaveLength(1);
+      expect(errors[0]?.error.message).toBe(message);
+    }
+  });
+
+  it("backfills a configured symbol and ignores an unknown symbol", async () => {
+    const feed = new MockExchangeFeed();
+    await feed.open();
+    const stream = new OhlcStream(feed, createEventEmitter(), {
+      timeframes: ["1m"],
+      bufferSize: 2,
+      symbols: [SYM],
+    });
+    const ohlcv: Ohlcv = [1_700_000_400_000, 100, 110, 90, 105, 1];
+    feed.setOhlcv(SYM, "1m", [ohlcv]);
+    await stream.backfill(SYM, "1m", 2);
+    await stream.backfill(OTHER_SYM, "1m", 2);
+    expect(stream.getBars(SYM, "1m")).toHaveLength(1);
+    expect(stream.getBars(OTHER_SYM, "1m")).toEqual([]);
+  });
+
+  it("retains configured-symbol bars and emits unknown-symbol bars without retaining them", () => {
+    const emitter = createEventEmitter();
+    const events: OhlcStreamBarEvent[] = [];
+    emitter.on("bar", (event: OhlcStreamBarEvent) => {
+      events.push(event);
+    });
+    const stream = new OhlcStream(new MockExchangeFeed(), emitter, {
+      timeframes: ["1m"],
+      bufferSize: 2,
+      symbols: [SYM],
+    });
+    stream.ingest(tradeFor(SYM));
+    stream.ingest(tradeFor(SYM, 1_700_000_460_000));
+    stream.ingest(tradeFor(OTHER_SYM));
+    stream.ingest(tradeFor(OTHER_SYM, 1_700_000_460_000));
+    expect(stream.getBars(SYM, "1m")).toHaveLength(1);
+    expect(stream.getBars(OTHER_SYM, "1m")).toEqual([]);
+    expect(events.map((event) => event.bar.symbol)).toEqual([SYM, OTHER_SYM]);
   });
 });
 
