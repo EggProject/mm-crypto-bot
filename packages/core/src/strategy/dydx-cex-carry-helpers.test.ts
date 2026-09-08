@@ -15,14 +15,56 @@ import {
   HOUR,
   MockFillSimulator,
   MockFundingSource,
+  mkPositionManagementContext,
   mkSnapshot,
   mkStrategy,
+  recordReadyCarryObservations,
   satisfyPreconditions,
 } from "./dydx-cex-carry.test-support.js";
 import type { CarryMarket } from "./dydx-cex-carry.js";
 import type { FundingSnapshot } from "./funding-snapshot.js";
 
 describe("factory helpers", () => {
+  it("exposes deterministic funding-source, fill, and position-context support behavior", () => {
+    const source = new MockFundingSource();
+    let didReceiveFundingTick = false;
+    const subscription = source.subscribe("BTC-USD", () => {
+      didReceiveFundingTick = true;
+    });
+    subscription.close();
+    source.advanceChainTo(FIXED_NOW + HOUR);
+    expect(source.health()).toEqual({ lastTickMs: FIXED_NOW + HOUR, chainBlockHeight: 1_000_000 });
+    expect(source.subscriptionCountForTest).toBe(1);
+    expect(source.closeCountForTest).toBe(1);
+    expect(didReceiveFundingTick).toBe(false);
+
+    const fills = new MockFillSimulator();
+    expect(fills.depthUsdAt1Pct(FIXED_NOW)).toBe(200_000);
+    expect(fills.midPriceUsd(FIXED_NOW)?.equals(ExactRational.from("60000"))).toBe(true);
+    const context = mkPositionManagementContext(FIXED_NOW);
+    expect(context.openPosition.entryTime).toBe(FIXED_NOW - HOUR);
+    expect(context.candle.timestamp).toBe(FIXED_NOW);
+  });
+
+  it("records latency and depth observations through the carry public boundary", () => {
+    const source = new MockFundingSource();
+    const strategy = mkStrategy(source);
+    recordReadyCarryObservations(strategy, source);
+    expect(strategy.isLatencyPaused()).toBe(false);
+    expect(strategy.state.bybitDepth).toEqual({
+      status: "valid",
+      depthUsd: 200_000,
+      observedAtMs: FIXED_NOW,
+    });
+  });
+
+  it("does not synthesize chain freshness when the funding source has no chain timestamp", () => {
+    const source = new MockFundingSource();
+    source.chainBlockTsOverride = undefined;
+    source.advanceChainTo(FIXED_NOW + HOUR);
+    expect(source.health()).toEqual({ lastTickMs: FIXED_NOW, chainBlockHeight: 1_000_000 });
+  });
+
   it("ALL_KILL_SWITCHES contains exactly 4 entries", () => {
     expect(ALL_KILL_SWITCHES).toEqual([
       "indexer-stale",
