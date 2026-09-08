@@ -6,20 +6,21 @@ import {
   alignToTimeframe,
   barsToCandles,
   barsToOhlcv,
+  DEFAULT_OHLC_STREAM_CONFIG,
   OhlcStream,
   RingBuffer,
   type OhlcBar,
   type OhlcStreamBarEvent,
   type OhlcStreamErrorEvent,
 } from "./ohlc-stream.js";
-import type { OhlcStreamOptions } from "./index.js";
+import type { OhlcStreamConfig, OhlcStreamOptions } from "./index.js";
 import type { FeedListener } from "./feed.js";
 import { asSymbol } from "./symbols.js";
 import { MockExchangeFeed } from "./testing/mock-feed.js";
 import type { Ohlcv, Symbol, Trade } from "./types.js";
 
-const SYM = asSymbol("BTC/USDT");
-const OTHER_SYM = asSymbol("ETH/USDT");
+const SYM = asSymbol("BTC/USDC");
+const OTHER_SYM = asSymbol("ETH/USDC");
 
 class EventInjectingFeed extends MockExchangeFeed {
   subscribeTradesCalls = 0;
@@ -47,13 +48,76 @@ class UnsubscribeFailureFeed extends MockExchangeFeed {
   }
 }
 
+class BoundaryRecordingFeed extends MockExchangeFeed {
+  openCalls = 0;
+  fetchOhlcvCalls = 0;
+  subscribeTradesCalls = 0;
+
+  override async open(): Promise<void> {
+    this.openCalls += 1;
+    await super.open();
+  }
+
+  override async fetchOHLCV(
+    symbol: Symbol,
+    timeframe: "1m" | "5m" | "15m" | "1h" | "4h" | "1d",
+    since: number | undefined,
+    limit: number,
+  ): Promise<readonly Ohlcv[]> {
+    this.fetchOhlcvCalls += 1;
+    return super.fetchOHLCV(symbol, timeframe, since, limit);
+  }
+
+  override async subscribeTrades(symbol: Symbol, listener: FeedListener): Promise<number> {
+    this.subscribeTradesCalls += 1;
+    return super.subscribeTrades(symbol, listener);
+  }
+}
+
+const EventEmitterBase = EventEmitter;
+
+class TestEventEmitter extends EventEmitterBase {}
+
+type EventEmitterConstructor = new () => EventEmitter;
+
 function tradeFor(symbol: Symbol, timestamp = 1_700_000_400_000): Trade {
   return { id: `trade-${String(timestamp)}`, symbol, timestamp, price: 100, amount: 1, takerSide: "buy" };
 }
 
 function createEventEmitter(): EventEmitter {
-  // eslint-disable-next-line unicorn/prefer-event-target -- OhlcStream exposes the Node EventEmitter contract.
-  return new EventEmitter();
+  return constructEventEmitter(TestEventEmitter);
+}
+
+function constructEventEmitter(EventEmitterClass: EventEmitterConstructor): EventEmitter {
+  return new EventEmitterClass();
+}
+
+function expectNoFeedIo(feed: BoundaryRecordingFeed): void {
+  expect(feed.openCalls).toBe(0);
+  expect(feed.fetchOhlcvCalls).toBe(0);
+  expect(feed.subscribeTradesCalls).toBe(0);
+}
+
+function constructAtJavaScriptBoundary(feed: BoundaryRecordingFeed, options: unknown): void {
+  Reflect.construct(OhlcStream, [feed, createEventEmitter(), options]);
+}
+
+function expectDeeplyImmutableConfig(config: OhlcStreamConfig): void {
+  const originalBufferSize = config.bufferSize;
+  const originalSymbols = [...config.symbols];
+  const originalTimeframes = [...config.timeframes];
+  try {
+    expect(() => Object.assign(config, { bufferSize: 10_001 })).toThrow(TypeError);
+    expect(() => Object.assign(config.symbols, { 0: asSymbol("DOGE/USDC") })).toThrow(TypeError);
+    expect(() => Object.assign(config.timeframes, { 0: "1d" })).toThrow(TypeError);
+  } finally {
+    if (config.bufferSize !== originalBufferSize) Object.assign(config, { bufferSize: originalBufferSize });
+    if (config.symbols.join("|") !== originalSymbols.join("|"))
+      Object.assign(config.symbols, originalSymbols);
+    if (config.timeframes.join("|") !== originalTimeframes.join("|")) {
+      Object.assign(config.timeframes, originalTimeframes);
+    }
+  }
 }
 
 describe("RingBuffer", () => {
@@ -145,6 +209,101 @@ describe("alignToTimeframe", () => {
 });
 
 describe("OhlcStream public boundaries", () => {
+  it("deeply freezes exported defaults and constructor config without retaining caller arrays", () => {
+    const timeframes = ["1m"];
+    const symbols = ["BTC/USDC"];
+    const feed = new BoundaryRecordingFeed();
+    const stream = new OhlcStream(feed, createEventEmitter(), { bufferSize: 2, symbols, timeframes });
+
+    expectDeeplyImmutableConfig(DEFAULT_OHLC_STREAM_CONFIG);
+    expectDeeplyImmutableConfig(stream.config);
+    timeframes.push("5m");
+    symbols.push("DOGE/USDC");
+
+    expect(stream.config).toEqual({ bufferSize: 2, symbols: [asSymbol("BTC/USDC")], timeframes: ["1m"] });
+    expectNoFeedIo(feed);
+  });
+
+  it("rejects an empty timeframe array before feed I/O", () => {
+    const feed = new BoundaryRecordingFeed();
+    expect(() => {
+      new OhlcStream(feed, createEventEmitter(), { timeframes: [] });
+    }).toThrow();
+    expectNoFeedIo(feed);
+  });
+
+  it("rejects duplicate timeframe and symbol arrays before feed I/O", () => {
+    const duplicateTimeframesFeed = new BoundaryRecordingFeed();
+    expect(() => {
+      new OhlcStream(duplicateTimeframesFeed, createEventEmitter(), { timeframes: ["1m", "1m"] });
+    }).toThrow();
+    expectNoFeedIo(duplicateTimeframesFeed);
+
+    const duplicateSymbolsFeed = new BoundaryRecordingFeed();
+    expect(() => {
+      new OhlcStream(duplicateSymbolsFeed, createEventEmitter(), { symbols: ["BTC/USDC", "BTC/USDC"] });
+    }).toThrow();
+    expectNoFeedIo(duplicateSymbolsFeed);
+  });
+
+  it("uses BTC/USDC and the other defaults when options are absent or undefined", () => {
+    const absent = new OhlcStream(new MockExchangeFeed(), createEventEmitter());
+    const undefinedOptions: OhlcStreamOptions = {
+      bufferSize: undefined,
+      symbols: undefined,
+      timeframes: undefined,
+    };
+    const explicitUndefined = new OhlcStream(new MockExchangeFeed(), createEventEmitter(), undefinedOptions);
+
+    expect(DEFAULT_OHLC_STREAM_CONFIG.symbols).toEqual([asSymbol("BTC/USDC")]);
+    expect(absent.config).toEqual(DEFAULT_OHLC_STREAM_CONFIG);
+    expect(explicitUndefined.config).toEqual(DEFAULT_OHLC_STREAM_CONFIG);
+  });
+
+  it("rejects non-object JavaScript options before feed I/O", () => {
+    const nullOptions = /not-present/u.exec("options");
+    for (const options of [nullOptions, [], 0]) {
+      const feed = new BoundaryRecordingFeed();
+      expect(() => {
+        constructAtJavaScriptBoundary(feed, options);
+      }).toThrow("OhlcStream options must be an object");
+      expectNoFeedIo(feed);
+    }
+  });
+
+  it("rejects unsupported, non-string, and empty symbol lists before feed I/O", () => {
+    const invalidSymbols = [["DOGE/USDC"], [42], [""], []];
+    for (const symbols of invalidSymbols) {
+      const feed = new BoundaryRecordingFeed();
+      expect(() => {
+        constructAtJavaScriptBoundary(feed, { symbols });
+      }).toThrow();
+      expectNoFeedIo(feed);
+    }
+  });
+
+  it("rejects invalid buffer sizes before feed I/O", () => {
+    const nullBufferSize = /not-present/u.exec("bufferSize");
+    const invalidBufferSizes = [
+      nullBufferSize,
+      "1000",
+      NaN,
+      Infinity,
+      0,
+      -1,
+      1.5,
+      10_001,
+      Number.MAX_SAFE_INTEGER + 1,
+    ];
+    for (const bufferSize of invalidBufferSizes) {
+      const feed = new BoundaryRecordingFeed();
+      expect(() => {
+        constructAtJavaScriptBoundary(feed, { bufferSize });
+      }).toThrow("OhlcStream bufferSize must be a positive safe integer no greater than 10000");
+      expectNoFeedIo(feed);
+    }
+  });
+
   it("rejects an invalid timeframe option before it invokes the feed", () => {
     const feed = new EventInjectingFeed();
     const options: OhlcStreamOptions = { timeframes: ["unsupported"] };

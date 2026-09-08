@@ -30,9 +30,13 @@ import type { Ohlcv, Symbol, Timeframe, Trade } from "./types.js";
 import type { Candle } from "@mm-crypto-bot/shared/types";
 import { TIMEFRAME_MS } from "@mm-crypto-bot/shared/types";
 
+import { normalizeOhlcStreamOptions, parseOhlcStreamTimeframe } from "./ohlc-stream-options.js";
+import type { OhlcStreamConfig, OhlcStreamOptions } from "./ohlc-stream-options.js";
 import { RingBuffer } from "./ohlc-stream.ring-buffer.js";
 
 export { RingBuffer } from "./ohlc-stream.ring-buffer.js";
+export { DEFAULT_OHLC_STREAM_CONFIG } from "./ohlc-stream-options.js";
+export type { OhlcStreamConfig, OhlcStreamOptions } from "./ohlc-stream-options.js";
 
 /**
  * A single completed OHLC bar, normalized for the consumer.
@@ -71,42 +75,6 @@ interface ActiveBar {
 }
 
 /**
- * Configuration for `OhlcStream`.
- */
-export interface OhlcStreamConfig {
-  /**
-   * Timeframes to maintain bars for. Default: 1m, 5m, 15m, 1h, 4h, 1d.
-   */
-  readonly timeframes: readonly Timeframe[];
-  /**
-   * Ring-buffer size per (symbol, timeframe). Default: 1000.
-   */
-  readonly bufferSize: number;
-  /**
-   * Symbols to subscribe to trades for. Default: BTC/USDT.
-   */
-  readonly symbols: readonly Symbol[];
-}
-
-/**
- * Public input boundary for partially configured OHLC streams.
- */
-export interface OhlcStreamOptions {
-  /**
-   * Untrusted timeframe values are normalized before allocation or feed I/O.
-   */
-  readonly timeframes?: unknown;
-  readonly bufferSize?: number;
-  readonly symbols?: readonly Symbol[];
-}
-
-export const DEFAULT_OHLC_STREAM_CONFIG: OhlcStreamConfig = {
-  timeframes: ["1m", "5m", "15m", "1h", "4h", "1d"],
-  bufferSize: 1000,
-  symbols: ["BTC/USDT" as Symbol],
-};
-
-/**
  * `BACKFILL_LIMIT` — a `start()` hívásakor ennyi lezárt bar-ral tölti
  * fel a `OhlcStream` a ring buffer-t a REST backfill során. A 200-as
  * érték a `ohlc-trend` strategy `slowEma` periódusával egyezik
@@ -136,19 +104,6 @@ export interface OhlcStreamErrorEvent {
  */
 type BarKey = string;
 
-const TIMEFRAME_DURATIONS: Readonly<Record<Timeframe, number>> = {
-  "1m": TIMEFRAME_MS["1m"],
-  "5m": TIMEFRAME_MS["5m"],
-  "15m": TIMEFRAME_MS["15m"],
-  "1h": TIMEFRAME_MS["1h"],
-  "4h": TIMEFRAME_MS["4h"],
-  "1d": TIMEFRAME_MS["1d"],
-};
-
-function isTimeframe(value: unknown): value is Timeframe {
-  return typeof value === "string" && Object.hasOwn(TIMEFRAME_DURATIONS, value);
-}
-
 function barKey(symbol: Symbol, timeframe: Timeframe): BarKey {
   return `${symbol}::${timeframe}`;
 }
@@ -158,19 +113,8 @@ function barKey(symbol: Symbol, timeframe: Timeframe): BarKey {
  * For a 1m timeframe, this returns the timestamp of the start of the
  * containing minute; for 1h, the start of the containing hour; etc.
  */
-function parseTimeframe(value: unknown): Timeframe {
-  if (isTimeframe(value)) return value;
-  throw new Error(`Unsupported timeframe: ${String(value)}`);
-}
-
-function normalizeTimeframes(value: unknown): readonly Timeframe[] {
-  if (value === undefined) return DEFAULT_OHLC_STREAM_CONFIG.timeframes;
-  if (!Array.isArray(value)) return [parseTimeframe(value)];
-  return value.map((timeframe) => parseTimeframe(timeframe));
-}
-
 export function alignToTimeframe(timestamp: number, timeframe: unknown): number {
-  const ms = TIMEFRAME_DURATIONS[parseTimeframe(timeframe)];
+  const ms = TIMEFRAME_MS[parseOhlcStreamTimeframe(timeframe)];
   return timestamp - (timestamp % ms);
 }
 
@@ -213,11 +157,7 @@ export class OhlcStream {
   constructor(feed: ExchangeFeed, emitter: EventEmitter, config: OhlcStreamOptions = {}) {
     this.feed = feed;
     this.emitter = emitter;
-    this.config = {
-      timeframes: normalizeTimeframes(config.timeframes),
-      bufferSize: config.bufferSize ?? DEFAULT_OHLC_STREAM_CONFIG.bufferSize,
-      symbols: config.symbols ?? DEFAULT_OHLC_STREAM_CONFIG.symbols,
-    };
+    this.config = normalizeOhlcStreamOptions(config);
     // Pre-allocate ring buffers for every (symbol, timeframe) pair.
     for (const symbol of this.config.symbols) {
       for (const tf of this.config.timeframes) {

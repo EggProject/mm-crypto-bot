@@ -3,11 +3,7 @@ export class RingBuffer<T> {
   private cursor = 0;
 
   constructor(public readonly capacity: number) {
-    if (
-      // eslint-disable-next-line unicorn/prefer-number-is-safe-integer -- The existing contract accepts every positive integer capacity.
-      !Number.isInteger(capacity) ||
-      capacity <= 0
-    ) {
+    if (!Number.isSafeInteger(capacity) || capacity <= 0) {
       throw new Error(`RingBuffer: capacity must be a positive integer, got ${String(capacity)}`);
     }
   }
@@ -35,7 +31,8 @@ export class RingBuffer<T> {
   }
 
   toArray(): T[] {
-    // eslint-disable-next-line unicorn/prefer-iterator-to-array -- Iterator helper typings are unavailable in the supported TypeScript lib.
-    return [...this.values()];
+    const values: T[] = [];
+    for (const value of this.values()) values.push(value);
+    return values;
   }
 }

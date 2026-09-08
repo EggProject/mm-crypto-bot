@@ -12,8 +12,8 @@ import { MockExchangeFeed } from "./testing/mock-feed.js";
 import type { Ohlcv, Trade } from "./types.js";
 import { asSymbol } from "./symbols.js";
 
-const SYM = asSymbol("BTC/USDT");
-const SYM2 = asSymbol("ETH/USDT");
+const SYM = asSymbol("BTC/USDC");
+const SYM2 = asSymbol("ETH/USDC");
 
 function mkTrade(overrides: Partial<Trade> = {}): Trade {
   return {
@@ -494,7 +494,7 @@ describe("OhlcStream — C5 fix: out-of-order trade detection", () => {
     }
     expect(warnings.length).toBe(1);
     expect(warnings[0]).toContain("dropped late trade");
-    expect(warnings[0]).toContain("BTC/USDT");
+    expect(warnings[0]).toContain("BTC/USDC");
     expect(warnings[0]).toContain("1m");
   });
 });
