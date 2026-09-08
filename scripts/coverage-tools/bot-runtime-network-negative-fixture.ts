@@ -24,7 +24,7 @@ const attempts: readonly { readonly boundary: string; readonly invoke: () => unk
   },
   {
     boundary: "node:http.request",
-    invoke: () => http.request("http://network-attempt.invalid"),
+    invoke: () => http.request({ hostname: "network-attempt.invalid", protocol: "http:" }),
   },
   {
     boundary: "Bun.connect",
@@ -32,17 +32,17 @@ const attempts: readonly { readonly boundary: string; readonly invoke: () => unk
       Bun.connect({
         hostname: "network-attempt.invalid",
         port: 443,
-        socket: { data: () => undefined },
+        socket: { data: (socket, data) => void Object.is(socket, data) },
       }),
   },
 ];
 
 for (const attempt of attempts) {
-  let blocked = false;
+  let isBlocked = false;
   try {
     attempt.invoke();
   } catch {
-    blocked = true;
+    isBlocked = true;
   }
-  if (!blocked) throw new Error(`network boundary was not blocked: ${attempt.boundary}`);
+  if (!isBlocked) throw new Error(`network boundary was not blocked: ${attempt.boundary}`);
 }
