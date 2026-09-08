@@ -40,7 +40,7 @@
     "coverage": "bun run coverage:full",
     "coverage:bot:unit": "bun scripts/coverage-tools/run-bot-unit-coverage.ts",
     "coverage:bot:e2e": "bun scripts/coverage-tools/run-bot-e2e-coverage.ts",
-    "coverage:scope": "bun scripts/coverage-tools/verify-bot-runtime-scope.ts",
+    "coverage:scope": "bun scripts/coverage-tools/verify-bot-runtime-scope.ts && sh -c 'PATH=\"${PATH#/tmp/bun-node-*:}\"; exec node ./node_modules/vitest/vitest.mjs run --config scripts/coverage-tools/vitest.bot-runtime-scope.config.mjs --coverage'",
     "typecheck:coverage-tools": "tsc --project tsconfig.json --noEmit",
     "test:coverage-infra": "bun test scripts/coverage-tools/*.test.ts && bash scripts/coverage-gates.test.sh",
     "coverage:per-package": "bash scripts/coverage-per-package.sh",

@@ -238,6 +238,7 @@ run_full_case() {
   if [[ "$mode" == "exact" ]]; then
     local command_log
     command_log="$(< "$root/coverage-command.log")"
+    assert_contains "$command_log" "coverage:scope|NODE=/tmp/bun-node-synthetic|npm_node_execpath=/tmp/bun-node-exec-synthetic|npm_execpath=/tmp/bun-exec-synthetic|bun_node_path=present"
     assert_contains "$command_log" "--filter @mm-crypto-bot/paper coverage|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
     assert_contains "$command_log" "--filter @mm-crypto-bot/shared coverage|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
     assert_contains "$command_log" "--filter @mm-crypto-bot/backtest coverage|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
@@ -266,10 +267,25 @@ assert_merge_inputs_exclude_e2e() {
 }
 
 assert_root_coverage_contract() {
-  local coverage_merge coverage_infra per_package_script foundation_package
+  local coverage_full coverage_infra coverage_merge coverage_scope per_package_script scope_config foundation_package
   coverage_merge="$(cd "$REPO_ROOT" && "$BUN_BIN" --eval 'const packageJson = await Bun.file("package.json").json(); process.stdout.write(packageJson.scripts["coverage:merge"]);')"
   coverage_infra="$(cd "$REPO_ROOT" && "$BUN_BIN" --eval 'const packageJson = await Bun.file("package.json").json(); process.stdout.write(packageJson.scripts["test:coverage-infra"]);')"
+  coverage_scope="$(cd "$REPO_ROOT" && "$BUN_BIN" --eval 'const packageJson = await Bun.file("package.json").json(); process.stdout.write(packageJson.scripts["coverage:scope"]);')"
   assert_contains "$coverage_infra" "bash scripts/coverage-gates.test.sh"
+  [[ "$coverage_scope" == "bun scripts/coverage-tools/verify-bot-runtime-scope.ts && sh -c 'PATH=\"\${PATH#/tmp/bun-node-*:}\"; exec node ./node_modules/vitest/vitest.mjs run --config scripts/coverage-tools/vitest.bot-runtime-scope.config.mjs --coverage'" ]] || fail "coverage:scope must run the direct verifier before its exact Node Vitest V8 gate"
+  scope_config="$(< "$REPO_ROOT/scripts/coverage-tools/vitest.bot-runtime-scope.config.mjs")"
+  assert_contains "$scope_config" 'include: ["scripts/coverage-tools/bot-runtime-scope.test.ts"]'
+  assert_contains "$scope_config" 'include: ["scripts/coverage-tools/verify-bot-runtime-scope.ts"]'
+  assert_contains "$scope_config" 'provider: "v8"'
+  assert_contains "$scope_config" 'reporter: ["text", "json-summary", "lcov"]'
+  assert_contains "$scope_config" 'reportsDirectory: path.join(repoRoot, "coverage", "bot-runtime-scope-v8")'
+  [[ "$scope_config" != *"exclude:"* ]] || fail "scope V8 config must not exclude source paths"
+  assert_contains "$scope_config" 'statements: 100'
+  assert_contains "$scope_config" 'branches: 100'
+  assert_contains "$scope_config" 'functions: 100'
+  assert_contains "$scope_config" 'lines: 100'
+  coverage_full="$(< "$REPO_ROOT/scripts/coverage-full.sh")"
+  assert_contains "$coverage_full" 'run_gate "bot runtime scope Node Vitest 100% statements/branches/functions/lines" bun run coverage:scope'
   assert_merge_inputs_exclude_e2e "$coverage_merge" || fail "coverage:merge includes an E2E LCOV input"
   if assert_merge_inputs_exclude_e2e "$coverage_merge apps/bot/coverage/e2e/lcov.info"; then
     fail "coverage:merge E2E rejection fixture accepted bot E2E input"
