@@ -127,6 +127,26 @@ describe("RingBuffer", () => {
     expect(() => new RingBuffer<number>(1.5)).toThrow(/capacity/);
   });
 
+  it("konstruktor elutasítja a 10 000 feletti biztonságos kapacitást", () => {
+    expect(() => new RingBuffer<number>(10_001)).toThrow(/capacity/);
+    expect(() => new RingBuffer<number>(Number.MAX_SAFE_INTEGER)).toThrow(/capacity/);
+  });
+
+  it("a kapacitás JS-határon sem írható felül, és a ring viselkedése változatlan", () => {
+    const buffer = new RingBuffer<number>(2);
+    const originalCapacity = buffer.capacity;
+    try {
+      expect(() => Object.assign(buffer, { capacity: 10_001 })).toThrow(TypeError);
+      expect(buffer.capacity).toBe(originalCapacity);
+      buffer.push(1);
+      buffer.push(2);
+      buffer.push(3);
+      expect(buffer.toArray()).toEqual([2, 3]);
+    } finally {
+      if (buffer.capacity !== originalCapacity) Object.assign(buffer, { capacity: originalCapacity });
+    }
+  });
+
   it("push + toArray, méret növekszik a kapacitásig", () => {
     const rb = new RingBuffer<number>(3);
     expect(rb.size).toBe(0);

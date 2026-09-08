@@ -1,11 +1,19 @@
+const MAX_RING_BUFFER_CAPACITY = 10_000;
+
 export class RingBuffer<T> {
   private readonly items: T[] = [];
   private cursor = 0;
+  readonly #capacity: number;
 
-  constructor(public readonly capacity: number) {
-    if (!Number.isSafeInteger(capacity) || capacity <= 0) {
+  constructor(capacity: number) {
+    if (!Number.isSafeInteger(capacity) || capacity <= 0 || capacity > MAX_RING_BUFFER_CAPACITY) {
       throw new Error(`RingBuffer: capacity must be a positive integer, got ${String(capacity)}`);
     }
+    this.#capacity = capacity;
+  }
+
+  get capacity(): number {
+    return this.#capacity;
   }
 
   push(item: T): void {
