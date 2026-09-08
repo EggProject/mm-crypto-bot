@@ -30,6 +30,21 @@ test("pre-commit pipeline fails fast", async () => {
   expect(commands).toHaveLength(2);
 });
 
+test("pre-commit pipeline does not inspect the worktree when artifact inspection requires cleanup", async () => {
+  const commands: string[] = [];
+  try {
+    await runPreCommitPipeline((command) => {
+      commands.push(command.join(" "));
+      return Promise.resolve({ exitCode: command[2] === "clean:artifacts" ? 1 : 0 });
+    });
+    throw new Error("Expected cleanup-required rejection");
+  } catch (error: unknown) {
+    expect(error).toHaveProperty("message", "Pre-commit command failed (1): bun run clean:artifacts");
+  }
+
+  expect(commands).toEqual(["bun run lint:hook", "bun run format:hook", "bun run clean:artifacts"]);
+});
+
 test("Bun command runner preserves direct command argv and child exit code", async () => {
   const options: { readonly cmd: readonly string[]; readonly stderr: string; readonly stdout: string }[] = [];
   const run = createBunCommandRunner((commandOptions) => {

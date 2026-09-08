@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { fileURLToPath } from "node:url";
 import { lstat, readFile } from "node:fs/promises";
+import { preCommitCommands } from "./pre-commit-pipeline.ts";
 
 const readRepoFile = (relativePath: string): Promise<string> =>
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test inputs are fixed repository-relative paths declared in this file.
@@ -82,11 +83,10 @@ test("CI invokes only the explicitly incomplete foundation verifier", async () =
   expect(workflow).not.toContain("bun run verify\n");
 });
 
-test("Slice A maps the approved hook order and governing sentence", async () => {
-  const [standards, lefthook, pipeline, prettier] = await Promise.all([
+test("Slice A maps the approved hook integration and formatting contract", async () => {
+  const [standards, lefthook, prettier] = await Promise.all([
     readRepoFile(".codex/ENGINEERING-STANDARDS.md"),
     readRepoFile("lefthook.yml"),
-    readRepoFile("scripts/tooling/pre-commit-pipeline.ts"),
     readRepoFile(".prettierrc.json"),
   ]);
 
@@ -94,16 +94,31 @@ test("Slice A maps the approved hook order and governing sentence", async () => 
     "Lefthook MUST run ESLint before Prettier at pre-commit, then run only the allowlisted clean:artifacts command and worktree inspection.",
   );
   expect(lefthook).toContain("run: bun run hook:pre-commit");
-  expect(pipeline.indexOf('"bun", "run", "lint:hook"')).toBeLessThan(
-    pipeline.indexOf('"bun", "run", "format:hook"'),
-  );
-  expect(pipeline.indexOf('"bun", "run", "format:hook"')).toBeLessThan(
-    pipeline.indexOf('"bun", "run", "clean:artifacts"'),
-  );
-  expect(pipeline.indexOf('"bun", "run", "clean:artifacts"')).toBeLessThan(
-    pipeline.indexOf('"bun", "run", "worktree:inspect"'),
-  );
+  expect(preCommitCommands).toEqual([
+    ["bun", "run", "lint:hook"],
+    ["bun", "run", "format:hook"],
+    ["bun", "run", "clean:artifacts"],
+    ["bun", "run", "worktree:inspect"],
+  ]);
   expect(prettier).toContain('"printWidth": 110');
+});
+
+test("artifact cleanup scripts reserve trusted authority for the explicit maintenance command", async () => {
+  interface PackageManifest {
+    readonly scripts: Record<string, string>;
+  }
+
+  const manifest = JSON.parse(await readRepoFile("package.json")) as PackageManifest;
+  const defaultCleanup = manifest.scripts["clean:artifacts"];
+  const dryRunCleanup = manifest.scripts["clean:artifacts:dry-run"];
+  const trustedCleanup = manifest.scripts["clean:artifacts:trusted"];
+
+  for (const inspectionScript of [defaultCleanup, dryRunCleanup]) {
+    expect(inspectionScript).toContain('mode: "inspect"');
+    expect(inspectionScript).not.toContain("trusted-cleanup");
+  }
+  expect(trustedCleanup).toContain('mode: "trusted-cleanup"');
+  expect(trustedCleanup).toContain("cleanArtifacts");
 });
 
 test("lint scripts must stay fail-closed against temp reintroduction", async () => {
