@@ -120,25 +120,21 @@ function isValidSemverIdentifiers(value: string, isPrerelease: boolean): boolean
 
 function isCanonicalVersion(value: unknown): boolean {
   if (typeof value !== "string") return false;
-  const buildParts = value.split("+");
-  if (
-    buildParts.length > 2 ||
-    buildParts[0] === undefined ||
-    buildParts[0].length === 0 ||
-    (buildParts[1] !== undefined && !isValidSemverIdentifiers(buildParts[1], false))
-  ) {
+  const buildIndex = value.indexOf("+");
+  const versionWithoutBuild = buildIndex === -1 ? value : value.slice(0, buildIndex);
+  const build = buildIndex === -1 ? undefined : value.slice(buildIndex + 1);
+  if (versionWithoutBuild.length === 0 || (build !== undefined && !isValidSemverIdentifiers(build, false))) {
     return false;
   }
-  const prereleaseParts = buildParts[0].split("-");
-  if (
-    prereleaseParts.length > 2 ||
-    prereleaseParts[0] === undefined ||
-    (prereleaseParts[1] !== undefined && !isValidSemverIdentifiers(prereleaseParts[1], true))
-  ) {
-    return false;
-  }
-  const core = prereleaseParts[0].split(".");
-  return core.length === 3 && core.every((identifier) => isCanonicalNonnegativeInteger(identifier));
+  const prereleaseIndex = versionWithoutBuild.indexOf("-");
+  const core = prereleaseIndex === -1 ? versionWithoutBuild : versionWithoutBuild.slice(0, prereleaseIndex);
+  const prerelease = prereleaseIndex === -1 ? undefined : versionWithoutBuild.slice(prereleaseIndex + 1);
+  const coreIdentifiers = core.split(".");
+  return (
+    coreIdentifiers.length === 3 &&
+    coreIdentifiers.every((identifier) => isCanonicalNonnegativeInteger(identifier)) &&
+    (prerelease === undefined || isValidSemverIdentifiers(prerelease, true))
+  );
 }
 
 function snapshot(value: ExactRational): ExactRationalSnapshot {

@@ -60,12 +60,18 @@ describe("arb latency artifact v2 validation exports", () => {
     expect(serializeCollection(input, validated).samples).toHaveLength(1);
     expect(serializeOpportunitySummary(input.opportunitySummary).totalSamples).toBe("1");
     expect(serializeDeploymentReadiness(input.deploymentReadiness).verdict).toBe("PASS");
+    expect(buildArbLatencyArtifactV2(inputWithVersion("4.5.75-alpha-beta")).metadata.ccxtVersion).toBe(
+      "4.5.75-alpha-beta",
+    );
+    expect(buildArbLatencyArtifactV2(inputWithVersion("4.5.75-x-y-z.--")).metadata.ccxtVersion).toBe(
+      "4.5.75-x-y-z.--",
+    );
     expect(buildArbLatencyArtifactV2(inputWithVersion("0.0.0+---")).metadata.ccxtVersion).toBe("0.0.0+---");
     expect(buildArbLatencyArtifactV2(inputWithVersion("4.5.75+A")).metadata.ccxtVersion).toBe("4.5.75+A");
   });
 
   it("rejects noncanonical SemVer forms and invalid exact configuration ports", () => {
-    for (const version of ["4.5.75+", "4.5.75-alpha.", "4.5.75-01", "4.5.75+a!", "4.5.75-a-b-c"]) {
+    for (const version of ["4.5.75+", "4.5.75-alpha.", "4.5.75-01", "4.5.75+a!"]) {
       expectFailure(() => buildArbLatencyArtifactV2(inputWithVersion(version)), "INVALID_VERSION");
     }
     const invalidSymbol = fixtureArtifactInput({ symbol: "btc/USDT" });
