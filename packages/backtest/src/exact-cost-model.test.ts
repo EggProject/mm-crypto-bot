@@ -83,6 +83,43 @@ function expectExact(value: ExactRational, numerator: string, denominator: strin
   expect(value.toSnapshot()).toEqual({ denominator, numerator, schema: "exact-rational@1" });
 }
 
+interface InvalidDurationInput {
+  readonly create: () => { readonly duration: unknown; readonly readPrimitiveCallCount: () => number };
+  readonly name: string;
+}
+
+function constantDurationInput(duration: unknown): {
+  readonly duration: unknown;
+  readonly readPrimitiveCallCount: () => number;
+} {
+  return Object.freeze({ duration, readPrimitiveCallCount: (): number => 0 });
+}
+
+function trappingDurationInput(): {
+  readonly duration: unknown;
+  readonly readPrimitiveCallCount: () => number;
+} {
+  let primitiveCallCount = 0;
+  return Object.freeze({
+    duration: Object.freeze({
+      [Symbol.toPrimitive]: (): never => {
+        primitiveCallCount += 1;
+        throw new Error("duration coercion must not occur");
+      },
+    }),
+    readPrimitiveCallCount: (): number => primitiveCallCount,
+  });
+}
+
+const invalidDurationInputs: readonly InvalidDurationInput[] = [
+  { create: (): ReturnType<typeof constantDurationInput> => constantDurationInput(1), name: "number" },
+  {
+    create: (): ReturnType<typeof constantDurationInput> => constantDurationInput("1.5"),
+    name: "canonical decimal string",
+  },
+  { create: trappingDurationInput, name: "trapping primitive object" },
+];
+
 describe("exact historical cost model", () => {
   it("applies slippage and half-spread without binary floating point", () => {
     const model = createExactCostModel(exactCostModelConfig());
@@ -357,6 +394,35 @@ describe("exact historical cost model", () => {
       "rate",
     );
   });
+
+  for (const invalidDurationInput of invalidDurationInputs) {
+    it(`rejects a ${invalidDurationInput.name} duration through exactMarginBorrowCost`, () => {
+      const model = createExactCostModel(exactCostModelConfig());
+      const runtimeDurationInput = invalidDurationInput.create();
+      expect(() => {
+        Reflect.apply(exactMarginBorrowCost, undefined, [
+          ExactRational.from("1"),
+          runtimeDurationInput.duration,
+          model,
+        ]);
+      }).toThrow("duration");
+      expect(runtimeDurationInput.readPrimitiveCallCount()).toBe(0);
+    });
+
+    it(`rejects a ${invalidDurationInput.name} duration through exactFundingCost`, () => {
+      const model = createExactCostModel(exactCostModelConfig());
+      const runtimeDurationInput = invalidDurationInput.create();
+      expect(() => {
+        Reflect.apply(exactFundingCost, undefined, [
+          ExactRational.from("1"),
+          runtimeDurationInput.duration,
+          model,
+          "long",
+        ]);
+      }).toThrow("duration");
+      expect(runtimeDurationInput.readPrimitiveCallCount()).toBe(0);
+    });
+  }
 
   it("rejects forged and proxied rationals before custom methods can affect a calculation", () => {
     const model = createExactCostModel(exactCostModelConfig());

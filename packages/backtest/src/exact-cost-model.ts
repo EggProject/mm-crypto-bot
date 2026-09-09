@@ -68,9 +68,9 @@ function requireStrictlyLessThan(
   return value;
 }
 
-function requireNonNegativeDuration(durationMilliseconds: bigint): bigint {
-  if (durationMilliseconds < 0n) {
-    throw new Error("Holding duration must be non-negative.");
+function requireNonNegativeDuration(durationMilliseconds: unknown): bigint {
+  if (typeof durationMilliseconds !== "bigint" || durationMilliseconds < 0n) {
+    throw new Error("Holding duration must be a non-negative bigint.");
   }
 
   return durationMilliseconds;
