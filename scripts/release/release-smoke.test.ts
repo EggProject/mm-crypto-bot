@@ -47,6 +47,23 @@ const encoder = new TextEncoder();
 const epoch = 1_788_199_915;
 const unavailableJson =
   '{"available":false,"code":"CONFIG_SEARCH_UNAVAILABLE","operation":"config-search","reason":"exact-strategy-run-corridor-unavailable","schema":"mm-crypto-bot.config-search.result/v1"}\n';
+const botHelp = `mm-crypto-bot command-line interface
+
+Usage: bun run apps/bot/src/index.ts <subcommand> [options]
+
+Subcommands:
+  backtest              Run a quick backtest on a deterministic OHLC fixture
+  config                Validate / show / init the bot config
+  help                  Show this help
+  kill-switch-dry-run   Simulate the kill-switch path without sending any orders
+  kill-switches         Show kill-switch state
+  start                 Start the bot (headless — runs until SIGINT/SIGTERM)
+  status                Show the persisted bot state
+  strategies            List registered strategies + on/off state
+  trades                Show recent closed trades
+
+Run \`bun run apps/bot/src/index.ts <subcommand> --help\` for subcommand-specific options.
+`;
 
 function archive(app: "bot" | "config-search") {
   const readme = encoder.encode(`README for ${app}\n`);
@@ -158,7 +175,7 @@ describe("verified release smoke", () => {
   test("runs only fixed, network-isolated argv and environment contracts for both applications", async () => {
     // Catches inherited environment, shell-like argv, or a missing config-search smoke form.
     const bot = candidate("bot");
-    bot.fileSystem.queueProcess({ exitCode: 1, stderr: "help\n", stdout: "" });
+    bot.fileSystem.queueProcess({ exitCode: 1, stderr: botHelp, stdout: "" });
     await smokeVerifiedRelease(bot.dependencies, bot.artifact);
     const config = candidate("config-search");
     config.fileSystem.queueProcess(
@@ -199,6 +216,20 @@ describe("verified release smoke", () => {
     );
     expect(current.fileSystem.removedDirectories).toHaveLength(1);
     expect(current.fileSystem.pathKind(current.artifact.directory)).toBe("directory");
+  });
+
+  test("rejects bot help results whose stderr is empty or differs from the public contract", async () => {
+    // Catches accepting a bot process result without the exact deterministic help stderr.
+    const emptyStderr = candidate("bot");
+    emptyStderr.fileSystem.queueProcess({ exitCode: 1, stderr: "", stdout: "" });
+    await expect(smokeVerifiedRelease(emptyStderr.dependencies, emptyStderr.artifact)).rejects.toThrow(
+      "release smoke failed",
+    );
+    const wrongStderr = candidate("bot");
+    wrongStderr.fileSystem.queueProcess({ exitCode: 1, stderr: "wrong help\n", stdout: "" });
+    await expect(smokeVerifiedRelease(wrongStderr.dependencies, wrongStderr.artifact)).rejects.toThrow(
+      "release smoke failed",
+    );
   });
 
   test("redacts candidate descriptor traps and ZIP or sidecar read failures before extraction", async () => {

@@ -40,6 +40,23 @@ const test = (name: string, run: () => void | Promise<void>): void => {
 const configHelp = "Usage: mm-crypto-bot-config-search [--status | --help]\n";
 const configStatus =
   '{"available":false,"code":"CONFIG_SEARCH_UNAVAILABLE","operation":"config-search","reason":"exact-strategy-run-corridor-unavailable","schema":"mm-crypto-bot.config-search.result/v1"}\n';
+const botHelp = `mm-crypto-bot command-line interface
+
+Usage: bun run apps/bot/src/index.ts <subcommand> [options]
+
+Subcommands:
+  backtest              Run a quick backtest on a deterministic OHLC fixture
+  config                Validate / show / init the bot config
+  help                  Show this help
+  kill-switch-dry-run   Simulate the kill-switch path without sending any orders
+  kill-switches         Show kill-switch state
+  start                 Start the bot (headless — runs until SIGINT/SIGTERM)
+  status                Show the persisted bot state
+  strategies            List registered strategies + on/off state
+  trades                Show recent closed trades
+
+Run \`bun run apps/bot/src/index.ts <subcommand> --help\` for subcommand-specific options.
+`;
 
 async function assembled(app: "bot" | "config-search") {
   const current = fixture();
@@ -49,7 +66,7 @@ async function assembled(app: "bot" | "config-search") {
 
 function queueSuccess(current: Awaited<ReturnType<typeof assembled>>, app: "bot" | "config-search"): void {
   if (app === "bot") {
-    current.fileSystem.queueProcess({ exitCode: 1, stderr: "", stdout: "" });
+    current.fileSystem.queueProcess({ exitCode: 1, stderr: botHelp, stdout: "" });
     return;
   }
   current.fileSystem.queueProcess(
@@ -187,6 +204,11 @@ describe("release smoke composition", () => {
     const badBot = await assembled("bot");
     badBot.fileSystem.queueProcess({ exitCode: 1, stderr: "", stdout: "unexpected" });
     await expect(smokeVerifiedRelease(badBot.dependencies, badBot.candidate)).rejects.toThrow("smoke failed");
+    const emptyBotStderr = await assembled("bot");
+    emptyBotStderr.fileSystem.queueProcess({ exitCode: 1, stderr: "", stdout: "" });
+    await expect(smokeVerifiedRelease(emptyBotStderr.dependencies, emptyBotStderr.candidate)).rejects.toThrow(
+      "smoke failed",
+    );
     const badHelp = await assembled("config-search");
     badHelp.fileSystem.queueProcess({ exitCode: 0, stderr: "unexpected", stdout: configHelp });
     await expect(smokeVerifiedRelease(badHelp.dependencies, badHelp.candidate)).rejects.toThrow(

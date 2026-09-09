@@ -10,6 +10,23 @@ const privateDirectoryKeys = ["path"];
 const configHelp = "Usage: mm-crypto-bot-config-search [--status | --help]\n";
 const configStatus =
   '{"available":false,"code":"CONFIG_SEARCH_UNAVAILABLE","operation":"config-search","reason":"exact-strategy-run-corridor-unavailable","schema":"mm-crypto-bot.config-search.result/v1"}\n';
+const botHelp = `mm-crypto-bot command-line interface
+
+Usage: bun run apps/bot/src/index.ts <subcommand> [options]
+
+Subcommands:
+  backtest              Run a quick backtest on a deterministic OHLC fixture
+  config                Validate / show / init the bot config
+  help                  Show this help
+  kill-switch-dry-run   Simulate the kill-switch path without sending any orders
+  kill-switches         Show kill-switch state
+  start                 Start the bot (headless — runs until SIGINT/SIGTERM)
+  status                Show the persisted bot state
+  strategies            List registered strategies + on/off state
+  trades                Show recent closed trades
+
+Run \`bun run apps/bot/src/index.ts <subcommand> --help\` for subcommand-specific options.
+`;
 
 interface CandidatePaths {
   readonly directory: string;
@@ -192,7 +209,7 @@ async function runSmokeCommand(
 }
 
 function isBotHelpResult(result: ReleaseCommandResult): boolean {
-  return result.exitCode === 1 && result.stdout === "";
+  return result.exitCode === 1 && result.stderr === botHelp && result.stdout === "";
 }
 
 function isConfigHelpResult(result: ReleaseCommandResult): boolean {
