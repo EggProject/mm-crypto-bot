@@ -12,6 +12,7 @@ export default defineConfig({
         "zip-store.ts",
         "zip-store-encoder.ts",
         "release-assembler.ts",
+        "release-verifier.ts",
       ],
       exclude: ["*.test.ts"],
       thresholds: { statements: 100, branches: 100, functions: 100, lines: 100, perFile: true },
