@@ -4,6 +4,7 @@ import type {
   ReleasePathKind,
   ReleasePrivateDirectory,
 } from "./release-ports";
+import type { ReleaseCommandResult } from "./release-ports";
 
 const text = new TextEncoder();
 
@@ -18,11 +19,31 @@ export class FakeFileSystem implements ReleaseFileSystemPort {
   ]);
   #temporaryDirectoryIndex = 0;
   #removalFailure: Error | undefined;
+  #directoryRemovalFailure: Error | undefined;
+  #lstatFailure: Error | undefined;
+  #mkdtempFailure: Error | undefined;
+  #readFailureCountdown = 0;
+  #nextPrivateDirectory: ReleasePrivateDirectory | undefined;
+  #nextPrivateDirectoryPath: string | undefined;
   #retainRemovedFile = false;
   #writeFailure: Error | undefined;
+  #processResults: ReleaseCommandResult[] = [];
   readonly chmodOperations: { readonly mode: 0o644 | 0o755; readonly path: string }[] = [];
+  readonly directoryOperations: { readonly mode: 0o755; readonly path: string }[] = [];
+  readonly processOperations: {
+    readonly argv: readonly string[];
+    readonly cwd: string;
+    readonly env: Readonly<Record<string, string>>;
+  }[] = [];
+  readonly readOperations: string[] = [];
+  readonly removedDirectories: string[] = [];
   readonly temporaryDirectoryOperations: { readonly parentDirectory: string; readonly prefix: string }[] = [];
   readonly writeOperations: { readonly bytes: Uint8Array; readonly path: string }[] = [];
+  readonly writeModes: (0o644 | 0o755)[] = [];
+
+  addDirectory(path: string): void {
+    this.#kinds.set(path, "directory");
+  }
 
   addFile(path: string, bytes: Uint8Array): void {
     this.#bytes.set(path, bytes);
@@ -41,6 +62,9 @@ export class FakeFileSystem implements ReleaseFileSystemPort {
   lstat(
     path: string,
   ): Promise<{ readonly isRegularFile: () => boolean; readonly isSymbolicLink: () => boolean }> {
+    const failure = this.#lstatFailure;
+    this.#lstatFailure = undefined;
+    if (failure !== undefined) return Promise.reject(failure);
     const kind = this.#kinds.get(path) ?? "missing";
     return Promise.resolve({
       isRegularFile: () => kind === "regular-file",
@@ -48,23 +72,58 @@ export class FakeFileSystem implements ReleaseFileSystemPort {
     });
   }
 
+  mkdir(path: string, mode: 0o755): Promise<void> {
+    this.directoryOperations.push({ mode, path });
+    this.addDirectory(path);
+    return Promise.resolve();
+  }
+
   mkdtemp(input: {
     readonly parentDirectory: string;
     readonly prefix: string;
   }): Promise<ReleasePrivateDirectory> {
+    const failure = this.#mkdtempFailure;
+    this.#mkdtempFailure = undefined;
+    if (failure !== undefined) return Promise.reject(failure);
     this.#temporaryDirectoryIndex += 1;
     this.temporaryDirectoryOperations.push(input);
-    const directory = `${input.parentDirectory}/${input.prefix}${this.#temporaryDirectoryIndex.toString()}`;
-    this.#kinds.set(directory, "directory");
-    return Promise.resolve(Object.freeze({ path: directory }));
+    const directoryPath =
+      this.#nextPrivateDirectoryPath ??
+      `${input.parentDirectory}/${input.prefix}${this.#temporaryDirectoryIndex.toString()}`;
+    this.#nextPrivateDirectoryPath = undefined;
+    const directory = this.#nextPrivateDirectory ?? Object.freeze({ path: directoryPath });
+    this.#nextPrivateDirectory = undefined;
+    this.#kinds.set(directory.path, "directory");
+    return Promise.resolve(directory);
   }
 
   readFile(path: string): Promise<Uint8Array> {
+    this.readOperations.push(path);
+    if (this.#readFailureCountdown > 0) {
+      this.#readFailureCountdown -= 1;
+      if (this.#readFailureCountdown === 0) return Promise.reject(new Error("injected read failure"));
+    }
     const bytes = this.#bytes.get(path);
     if (bytes === undefined) {
       return Promise.reject(new Error(`missing file: ${path}`));
     }
     return Promise.resolve(new Uint8Array(bytes));
+  }
+
+  removePrivateDirectory(directory: ReleasePrivateDirectory): Promise<void> {
+    const failure = this.#directoryRemovalFailure;
+    this.#directoryRemovalFailure = undefined;
+    if (failure !== undefined) return Promise.reject(failure);
+    if (this.pathKind(directory.path) !== "directory") {
+      return Promise.reject(new Error(`missing private directory: ${directory.path}`));
+    }
+    this.removedDirectories.push(directory.path);
+    for (const path of this.#kinds.keys()) {
+      if (path !== directory.path && !path.startsWith(`${directory.path}/`)) continue;
+      this.#kinds.delete(path);
+      this.#bytes.delete(path);
+    }
+    return Promise.resolve();
   }
 
   removeFile(path: string): Promise<void> {
@@ -89,6 +148,49 @@ export class FakeFileSystem implements ReleaseFileSystemPort {
     this.#removalFailure = new Error("injected remove failure");
   }
 
+  failNextDirectoryRemoval(): void {
+    this.#directoryRemovalFailure = new Error("injected directory remove failure");
+  }
+
+  failNextLstat(): void {
+    this.#lstatFailure = new Error("injected lstat failure");
+  }
+
+  failNextMkdtemp(): void {
+    this.#mkdtempFailure = new Error("injected mkdtemp failure");
+  }
+
+  failNextRead(): void {
+    this.#readFailureCountdown = 1;
+  }
+
+  failSecondRead(): void {
+    this.#readFailureCountdown = 2;
+  }
+
+  setNextPrivateDirectory(path: string): void {
+    this.#nextPrivateDirectoryPath = path;
+  }
+
+  setNextPrivateDirectoryValue(directory: ReleasePrivateDirectory): void {
+    this.#nextPrivateDirectory = directory;
+  }
+
+  queueProcess(...results: readonly ReleaseCommandResult[]): void {
+    this.#processResults.push(...results);
+  }
+
+  runProcess(input: {
+    readonly argv: readonly string[];
+    readonly cwd: string;
+    readonly env: Readonly<Record<string, string>>;
+  }): Promise<ReleaseCommandResult> {
+    this.processOperations.push(input);
+    const result = this.#processResults.shift();
+    if (result === undefined) return Promise.reject(new Error("missing process result"));
+    return Promise.resolve(result);
+  }
+
   retainNextRemovedFile(): void {
     this.#retainRemovedFile = true;
   }
@@ -105,13 +207,14 @@ export class FakeFileSystem implements ReleaseFileSystemPort {
     this.#kinds.set(path, kind);
   }
 
-  writeFile(path: string, bytes: Uint8Array, _mode: 0o644 | 0o755): Promise<void> {
+  writeFile(path: string, bytes: Uint8Array, mode: 0o644 | 0o755): Promise<void> {
     const failure = this.#writeFailure;
     this.#writeFailure = undefined;
     if (failure !== undefined) {
       return Promise.reject(failure);
     }
     this.writeOperations.push({ bytes: new Uint8Array(bytes), path });
+    this.writeModes.push(mode);
     this.addFile(path, new Uint8Array(bytes));
     return Promise.resolve();
   }
@@ -172,7 +275,7 @@ export function fixture(options: FixtureOptions = {}): Fixture {
       headCommitEpoch: () => Promise.resolve(options.epoch ?? "1788199915"),
       porcelainStatus: () => Promise.resolve(options.status ?? ""),
     },
-    process: { run: () => Promise.resolve({ exitCode: 0, stderr: "", stdout: "" }) },
+    process: { run: (input) => fileSystem.runProcess(input) },
     repositoryRoot: repoRoot,
     temporaryRoot,
     toolchain: {

@@ -42,8 +42,10 @@ export interface ReleaseFileSystemPort {
   lstat(
     path: string,
   ): Promise<{ readonly isRegularFile: () => boolean; readonly isSymbolicLink: () => boolean }>;
+  mkdir(path: string, mode: 0o755): Promise<void>;
   mkdtemp(input: ReleaseMkdtempInput): Promise<ReleasePrivateDirectory>;
   readFile(path: string): Promise<Uint8Array>;
+  removePrivateDirectory(directory: ReleasePrivateDirectory): Promise<void>;
   removeFile(path: string): Promise<void>;
   writeFile(path: string, bytes: Uint8Array, mode: 0o644 | 0o755): Promise<void>;
 }
