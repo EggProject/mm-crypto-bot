@@ -16,13 +16,18 @@ export default defineConfig({
     environment: "node",
     fileParallelism: false,
     include: [
+      "scripts/tooling/clean-artifacts.test.ts",
       "scripts/tooling/staged-file-validation.test.ts",
       "scripts/tooling/pre-commit-pipeline.test.ts",
     ],
     maxWorkers: 1,
     pool: "forks",
     coverage: {
-      include: ["scripts/tooling/staged-file-validation.ts", "scripts/tooling/pre-commit-pipeline.ts"],
+      include: [
+        "scripts/tooling/clean-artifacts.ts",
+        "scripts/tooling/staged-file-validation.ts",
+        "scripts/tooling/pre-commit-pipeline.ts",
+      ],
       provider: "v8",
       reporter: ["text", "json-summary", "lcov"],
       reportsDirectory: path.join(repoRoot, "coverage", "pre-commit-v8"),

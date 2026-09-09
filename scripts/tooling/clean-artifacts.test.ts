@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
-import { expect, test } from "bun:test";
-import { access, mkdtemp, mkdir, rmdir, symlink, unlink, writeFile } from "node:fs/promises";
+import { afterEach, expect, test } from "bun:test";
+import { access, mkdtemp, mkdir, rm, rmdir, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -8,8 +8,30 @@ import { assertSafeRelativeArtifactTarget, cleanArtifacts } from "./clean-artifa
 
 const runFile = promisify(execFile);
 
-const createGitRepo = async (prefix: string): Promise<string> => {
+const temporaryRoots = new Set<string>();
+
+const createTemporaryRoot = async (prefix: `mm-cleaner-${string}`): Promise<string> => {
   const rootDirectory = await mkdtemp(path.join(tmpdir(), prefix));
+  temporaryRoots.add(rootDirectory);
+  return rootDirectory;
+};
+
+const removeTemporaryRoots = async (): Promise<void> => {
+  const registeredRoots = [...temporaryRoots];
+  temporaryRoots.clear();
+
+  for (const rootDirectory of registeredRoots) {
+    if (path.dirname(rootDirectory) !== tmpdir() || !path.basename(rootDirectory).startsWith("mm-cleaner-")) {
+      throw new Error(`Refusing to remove an untrusted temporary fixture root: ${rootDirectory}`);
+    }
+    await rm(rootDirectory, { force: true, recursive: true });
+  }
+};
+
+afterEach(removeTemporaryRoots);
+
+const createGitRepo = async (prefix: `mm-cleaner-${string}`): Promise<string> => {
+  const rootDirectory = await createTemporaryRoot(prefix);
   await runFile("git", ["init", "--quiet", rootDirectory]);
   return rootDirectory;
 };
@@ -100,6 +122,15 @@ test("inspection reports cleanup-required without deleting allowlisted or user-o
   expect(await isPathPresent(path.join(rootDirectory, "node_modules", "keep.txt"))).toBe(true);
 });
 
+test("registered temporary fixture roots are removed exactly", async () => {
+  const rootDirectory = await createTemporaryRoot("mm-cleaner-registry-");
+  await writeFixtureFile(path.join(rootDirectory, "fixture.txt"), "fixture");
+
+  await removeTemporaryRoots();
+
+  expect(await isPathPresent(rootDirectory)).toBe(false);
+});
+
 test("dry-run inspection also fails closed when cleanup is required", async () => {
   const rootDirectory = await createGitRepo("mm-cleaner-dry-run-");
   await writeFixtureFile(path.join(rootDirectory, "coverage", "result.txt"), "coverage");
@@ -133,7 +164,7 @@ test("inspection mode does not remove artifacts before explicit trusted cleanup"
 
 test("caller-provided filesystem dependencies cannot bypass intermediate symbolic-link rejection", async () => {
   const rootDirectory = await createGitRepo("mm-cleaner-untrusted-dependency-");
-  const outsideDirectory = await mkdtemp(path.join(tmpdir(), "mm-cleaner-untrusted-outside-"));
+  const outsideDirectory = await createTemporaryRoot("mm-cleaner-untrusted-outside-");
   await writeFixtureFile(path.join(outsideDirectory, "backtest", "dist", "result.txt"), "coverage");
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- The symlink fixture is isolated under the OS temp directory.
   await symlink(outsideDirectory, path.join(rootDirectory, "packages"));
@@ -168,7 +199,7 @@ test("inspection preserves an ENOTDIR metadata error from a real temporary fixtu
 });
 
 test("cleaner rejects non-Git and nested invocation roots", async () => {
-  const nonGitRoot = await mkdtemp(path.join(tmpdir(), "mm-cleaner-non-git-"));
+  const nonGitRoot = await createTemporaryRoot("mm-cleaner-non-git-");
   await expectFailure(cleanFixture(nonGitRoot, "inspect", []), "Cleaner root must be a Git worktree");
 
   const rootDirectory = await createGitRepo("mm-cleaner-nested-");
@@ -210,7 +241,7 @@ test("cleaner rejects non-Git and nested invocation roots", async () => {
 
 test("cleaner rejects final and intermediate symbolic-link paths", async () => {
   const rootDirectory = await createGitRepo("mm-cleaner-link-");
-  const outsideDirectory = await mkdtemp(path.join(tmpdir(), "mm-cleaner-outside-"));
+  const outsideDirectory = await createTemporaryRoot("mm-cleaner-outside-");
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Temporary fixture path is isolated under the OS temp directory.
   await writeFile(path.join(outsideDirectory, "keep.txt"), "keep");
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Temporary fixture path is isolated under the OS temp directory.

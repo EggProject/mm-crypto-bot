@@ -9,6 +9,12 @@ const readRepoFile = (relativePath: string): Promise<string> =>
 
 type Lstat = (path: string | URL) => Promise<unknown>;
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((entry) => typeof entry === "string");
+
 const isMissingPathError = (error: unknown): error is { code: string } => {
   if (!(error instanceof Error)) {
     return false;
@@ -119,6 +125,49 @@ test("artifact cleanup scripts reserve trusted authority for the explicit mainte
   }
   expect(trustedCleanup).toContain('mode: "trusted-cleanup"');
   expect(trustedCleanup).toContain("cleanArtifacts");
+});
+
+test("pre-commit V8 coverage includes the artifact cleaner contract at complete thresholds", async () => {
+  const configModule: unknown = await import("./vitest.pre-commit.config.mjs");
+  if (!isRecord(configModule) || !isRecord(configModule["default"])) {
+    throw new Error("Expected a pre-commit Vitest configuration module");
+  }
+  const testConfig = configModule["default"]["test"];
+
+  if (!isRecord(testConfig)) {
+    throw new Error("Expected a single pre-commit Vitest configuration");
+  }
+  const coverageConfig = testConfig["coverage"];
+  if (!isRecord(coverageConfig)) {
+    throw new Error("Expected pre-commit Vitest coverage configuration");
+  }
+  if (!isStringArray(testConfig["include"]) || !isStringArray(coverageConfig["include"])) {
+    throw new Error("Expected explicit pre-commit Vitest include lists");
+  }
+  if (!isRecord(coverageConfig["thresholds"])) {
+    throw new Error("Expected explicit pre-commit Vitest coverage thresholds");
+  }
+
+  for (const expectedTestFile of [
+    "scripts/tooling/clean-artifacts.test.ts",
+    "scripts/tooling/pre-commit-pipeline.test.ts",
+    "scripts/tooling/staged-file-validation.test.ts",
+  ]) {
+    expect(testConfig["include"]).toContain(expectedTestFile);
+  }
+  for (const expectedSourceFile of [
+    "scripts/tooling/clean-artifacts.ts",
+    "scripts/tooling/pre-commit-pipeline.ts",
+    "scripts/tooling/staged-file-validation.ts",
+  ]) {
+    expect(coverageConfig["include"]).toContain(expectedSourceFile);
+  }
+  expect(coverageConfig["thresholds"]).toEqual({
+    branches: 100,
+    functions: 100,
+    lines: 100,
+    statements: 100,
+  });
 });
 
 test("lint scripts must stay fail-closed against temp reintroduction", async () => {
