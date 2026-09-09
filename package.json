@@ -34,6 +34,7 @@
     "hook:validate": "bun scripts/tooling/hook-contract.ts",
     "hook:bootstrap": "bun scripts/tooling/bootstrap.ts",
     "test:tooling": "bun test scripts/tooling/*.test.ts",
+    "release:verify": "bun scripts/release/verify.ts",
     "verify:foundation": "bun scripts/tooling/verify-foundation.ts",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

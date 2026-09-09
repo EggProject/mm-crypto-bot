@@ -89,6 +89,16 @@ test("CI invokes only the explicitly incomplete foundation verifier", async () =
   expect(workflow).not.toContain("bun run verify\n");
 });
 
+test("root release verification consumer command invokes the artifact verifier", async () => {
+  const manifest: unknown = JSON.parse(await readRepoFile("package.json"));
+
+  if (!isRecord(manifest) || !isRecord(manifest["scripts"])) {
+    throw new Error("Expected root package manifest scripts to be a record");
+  }
+
+  expect(manifest["scripts"]["release:verify"]).toBe("bun scripts/release/verify.ts");
+});
+
 test("Slice A maps the approved hook integration and formatting contract", async () => {
   const [standards, lefthook, prettier] = await Promise.all([
     readRepoFile(".codex/ENGINEERING-STANDARDS.md"),
