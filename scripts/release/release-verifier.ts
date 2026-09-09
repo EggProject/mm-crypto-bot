@@ -61,9 +61,10 @@ interface ParsedArchive {
 function readInput(value: unknown): SafeInput {
   try {
     if (!hasExactDataProperties(value, inputKeys)) throw invalid("input");
-    const sidecarBytes = value["sidecarBytes"];
-    const zipBasename = value["zipBasename"];
-    const zipBytes = value["zipBytes"];
+    const copiedValue = structuredClone(value);
+    const sidecarBytes = copiedValue["sidecarBytes"];
+    const zipBasename = copiedValue["zipBasename"];
+    const zipBytes = copiedValue["zipBytes"];
     if (
       typeof zipBasename !== "string" ||
       !(sidecarBytes instanceof Uint8Array) ||

@@ -11,6 +11,7 @@ import { verifyReleaseArchive } from "./release-verifier";
 import { encodeStoreZip, parseStoreZip } from "./zip-store";
 
 const encoder = new TextEncoder();
+const decoder = new TextDecoder("utf-8", { fatal: true });
 const epoch = 1_788_199_915;
 const commit = "a".repeat(40);
 const lockfileSha256 = "b".repeat(64);
@@ -75,6 +76,53 @@ function mutate(bytesValue: Uint8Array, offset: number, value: number): Uint8Arr
   const copy = new Uint8Array(bytesValue);
   copy.set([value], offset);
   return copy;
+}
+
+function duplicateEntryArchive(): Uint8Array {
+  const name = bytes("README.md");
+  const entryLength = 46 + name.length;
+  const endOffset = entryLength * 2;
+  const archive = new Uint8Array(endOffset + 22);
+  const view = new DataView(archive.buffer);
+  writeDuplicateCentralEntry(view, archive, 0, name);
+  writeDuplicateCentralEntry(view, archive, entryLength, name);
+  view.setUint32(endOffset, 0x06_05_4b_50, true);
+  view.setUint16(endOffset + 8, 2, true);
+  view.setUint16(endOffset + 10, 2, true);
+  view.setUint32(endOffset + 12, endOffset, true);
+  return archive;
+}
+
+function writeDuplicateCentralEntry(
+  view: DataView,
+  archive: Uint8Array,
+  offset: number,
+  name: Uint8Array,
+): void {
+  view.setUint32(offset, 0x02_01_4b_50, true);
+  view.setUint16(offset + 4, 0x03_14, true);
+  view.setUint16(offset + 6, 20, true);
+  view.setUint16(offset + 14, 33, true);
+  view.setUint16(offset + 28, name.length, true);
+  view.setUint32(offset + 38, 0x81_a4_00_00, true);
+  archive.set(name, offset + 46);
+}
+
+function manifestText(input: ReturnType<typeof fixture>): string {
+  const entry = parseStoreZip(input.zipBytes).entries.find((candidate) => candidate.path === "manifest.json");
+  return decoder.decode(required(entry).bytes);
+}
+
+function archiveWithManifestReplacement(
+  input: ReturnType<typeof fixture>,
+  original: string,
+  replacement: string,
+) {
+  const text = manifestText(input);
+  const index = text.indexOf(original);
+  if (index === -1) throw new Error("test manifest replacement is absent");
+  const changed = `${text.slice(0, index)}${replacement}${text.slice(index + original.length)}`;
+  return archive("bot", bytes(changed));
 }
 
 function centralOffset(zipBytes: Uint8Array): number {
@@ -144,9 +192,12 @@ describe("verifyReleaseArchive", () => {
     await rejects(withZip(input, invalidSignature), "archive");
     const invalidCrc = mutate(input.zipBytes, 14, required(input.zipBytes.at(14)) ^ 1);
     await rejects(withZip(input, invalidCrc), "archive");
+    const invalidPayload = mutate(input.zipBytes, 39, required(input.zipBytes.at(39)) ^ 1);
+    await rejects(withZip(input, invalidPayload), "archive");
     const offset = centralOffset(input.zipBytes);
     await rejects(withZip(input, mutate(input.zipBytes, offset + 42, 1)), "archive");
     await rejects(withZip(input, mutate(input.zipBytes, 30, 0x53)), "archive");
+    await rejects(withZip(input, duplicateEntryArchive()), "archive");
   });
 
   test("rejects missing layouts, wrong executable, and wrong parser mode", async () => {
@@ -185,6 +236,14 @@ describe("verifyReleaseArchive", () => {
     await rejects(archive("bot", bytes('{"app":"bot"}\n')), "manifest");
   });
 
+  test("rejects unsafe and ZIP-DOS-incompatible source epochs", async () => {
+    // Catches accepting an unsafe epoch or trusting a manifest epoch that cannot produce the archive timestamp.
+    const input = fixture("bot");
+    await rejects(archiveWithManifestReplacement(input, "1788199915", "9007199254740992"), "manifest");
+    await rejects(archiveWithManifestReplacement(input, "1788199915", "-1"), "timestamp");
+    await rejects(archiveWithManifestReplacement(input, "1788199915", "4354819200"), "timestamp");
+  });
+
   test("rejects every fixed manifest schema invariant", async () => {
     // Catches any missing fixed schema, version, digest, epoch, target, toolchain, or configuration check.
     const changes: readonly ((manifest: ReleaseManifestV1) => unknown)[] = [
@@ -198,10 +257,18 @@ describe("verifyReleaseArchive", () => {
       (manifest) => ({ ...manifest, sourceDateEpoch: "1788199915" }),
       (manifest) => ({ ...manifest, sourceDateEpoch: epoch + 2 }),
       (manifest) => ({ ...manifest, target: { ...manifest.target, arch: "arm64" } }),
+      (manifest) => ({ ...manifest, target: { ...manifest.target, bunTarget: "bun-linux-arm64" } }),
+      (manifest) => ({ ...manifest, target: { ...manifest.target, os: "darwin" } }),
       (manifest) => ({ ...manifest, target: {} }),
       (manifest) => ({ ...manifest, toolchain: { ...manifest.toolchain, bun: "1.3.15" } }),
+      (manifest) => ({ ...manifest, toolchain: { ...manifest.toolchain, nodeMetadata: "24.20.0" } }),
       (manifest) => ({ ...manifest, toolchain: {} }),
       (manifest) => ({ ...manifest, configuration: { ...manifest.configuration, external: false } }),
+      (manifest) => ({ ...manifest, configuration: { ...manifest.configuration, embedded: true } }),
+      (manifest) => ({
+        ...manifest,
+        configuration: { ...manifest.configuration, runtimeRootEnvironment: "OTHER" },
+      }),
       (manifest) => ({ ...manifest, configuration: { embedded: false, external: true } }),
       (manifest) => ({ ...manifest, extra: true }),
       (manifest) => {
@@ -241,6 +308,10 @@ describe("verifyReleaseArchive", () => {
       }),
       (manifest) => ({
         ...manifest,
+        payloads: [{ ...required(manifest.payloads[0]), bytes: -1 }, required(manifest.payloads[1])],
+      }),
+      (manifest) => ({
+        ...manifest,
         payloads: [{ ...required(manifest.payloads[0]), bytes: "0" }, required(manifest.payloads[1])],
       }),
       (manifest) => ({
@@ -256,10 +327,43 @@ describe("verifyReleaseArchive", () => {
       }),
     ];
     for (const change of changes) await rejects(fixture("bot", change), "payload");
+    await rejects(
+      archiveWithManifestReplacement(fixture("bot"), '"bytes": 15', '"bytes": 9007199254740992'),
+      "manifest",
+    );
+  });
+
+  test("rejects unknown and missing keys in each nested manifest record", async () => {
+    // Catches relaxing exact plain-data schemas below the top-level manifest.
+    const manifestChanges: readonly ((manifest: ReleaseManifestV1) => unknown)[] = [
+      (manifest) => ({ ...manifest, target: { ...manifest.target, unexpected: true } }),
+      (manifest) => ({ ...manifest, target: { arch: "x64", bunTarget: "bun-linux-x64" } }),
+      (manifest) => ({ ...manifest, toolchain: { ...manifest.toolchain, unexpected: true } }),
+      (manifest) => ({ ...manifest, toolchain: { bun: "1.3.14" } }),
+      (manifest) => ({ ...manifest, configuration: { ...manifest.configuration, unexpected: true } }),
+      (manifest) => ({ ...manifest, configuration: { embedded: false, external: true } }),
+    ];
+    const payloadChanges: readonly ((manifest: ReleaseManifestV1) => unknown)[] = [
+      (manifest) => ({
+        ...manifest,
+        payloads: [{ ...required(manifest.payloads[0]), unexpected: true }, required(manifest.payloads[1])],
+      }),
+      (manifest) => ({
+        ...manifest,
+        payloads: [
+          { bytes: required(manifest.payloads[0]).bytes, mode: "0644", path: "README.md" },
+          required(manifest.payloads[1]),
+        ],
+      }),
+    ];
+    for (const change of manifestChanges) await rejects(fixture("bot", change), "manifest");
+    for (const change of payloadChanges) await rejects(fixture("bot", change), "payload");
   });
 
   test("rejects malformed JavaScript-boundary objects and accessors", async () => {
     // Catches trusting structural TypeScript types instead of validating own data properties at runtime.
+    const proxied = new Proxy(fixture("bot"), {});
+    await rejects(proxied, "input");
     const input = fixture("bot");
     const extra = { ...input, unexpected: true };
     await rejects(extra, "input");
