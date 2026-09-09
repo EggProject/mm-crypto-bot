@@ -18,6 +18,7 @@ interface TestExpectation {
   readonly resolves: { toEqual(expected: unknown): Promise<void> };
   toContain(expected: unknown): void;
   toEqual(expected: unknown): void;
+  toHaveLength(expected: number): void;
   toThrow(expected?: string | RegExp): void;
 }
 
@@ -374,6 +375,62 @@ describe("release assembly", () => {
     expect(current.fileSystem.pathKind("/repo/releases/bot/0.1.0/bun-linux-x64")).toEqual("missing");
   });
 
+  test("removes a proven private candidate after every post-mkdtemp assembly failure", async () => {
+    // Catches compiler or ZIP failures retaining an owned private directory.
+    const compilerFailure = fixture();
+    compilerFailure.dependencies.compiler.compile = () => Promise.reject(new Error("compiler detail"));
+    await expect(assembleRelease(compilerFailure.dependencies, "bot")).rejects.toThrow("compiler detail");
+    expect(compilerFailure.fileSystem.removedDirectories).toEqual(["/private/mm-crypto-bot-bot-candidate-1"]);
+
+    const writeFailure = fixture();
+    writeFailure.fileSystem.failNextWrite();
+    await expect(assembleRelease(writeFailure.dependencies, "bot")).rejects.toThrow("injected write failure");
+    expect(writeFailure.fileSystem.removedDirectories).toHaveLength(1);
+
+    const cleanupFailure = fixture();
+    cleanupFailure.dependencies.compiler.compile = () => Promise.reject(new Error("compiler detail"));
+    cleanupFailure.fileSystem.failNextDirectoryRemoval();
+    await expect(assembleRelease(cleanupFailure.dependencies, "bot")).rejects.toThrow(
+      "release private candidate cleanup failed",
+    );
+    expect(cleanupFailure.fileSystem.removedDirectories).toEqual([]);
+  });
+
+  test("does not remove a malformed or escaped mkdtemp result", async () => {
+    // Catches treating an unproven directory descriptor as safely owned.
+    const malformed = fixture();
+    const malformedDirectory = { path: "/private/mm-crypto-bot-bot-candidate-1", extra: true };
+    malformed.fileSystem.setNextPrivateDirectoryValue(malformedDirectory);
+    await expect(assembleRelease(malformed.dependencies, "bot")).rejects.toThrow(
+      "release candidate directory escapes its allowed root",
+    );
+    expect(malformed.fileSystem.removedDirectories).toEqual([]);
+
+    const nullPrototype = fixture();
+    const privateDirectory = new Proxy(
+      { path: "/private/mm-crypto-bot-bot-candidate-1" },
+      { getPrototypeOf: () => Object.freeze({}) },
+    );
+    nullPrototype.fileSystem.setNextPrivateDirectoryValue(privateDirectory);
+    await expect(assembleRelease(nullPrototype.dependencies, "bot")).rejects.toThrow(
+      "release candidate directory escapes its allowed root",
+    );
+    expect(nullPrototype.fileSystem.removedDirectories).toEqual([]);
+
+    const nonStringPath = fixture();
+    const descriptorProxy = new Proxy(
+      { path: "/private/mm-crypto-bot-bot-candidate-1" },
+      {
+        getOwnPropertyDescriptor: () => ({ configurable: true, enumerable: true, value: 1, writable: true }),
+      },
+    );
+    nonStringPath.fileSystem.setNextPrivateDirectoryValue(descriptorProxy);
+    await expect(assembleRelease(nonStringPath.dependencies, "bot")).rejects.toThrow(
+      "release candidate directory escapes its allowed root",
+    );
+    expect(nonStringPath.fileSystem.removedDirectories).toEqual([]);
+  });
+
   test("assembles both fixed application releases only after validating both applications", async () => {
     const current = fixture();
     const results = await assembleAllReleases(current.dependencies);
@@ -396,5 +453,48 @@ describe("release assembly", () => {
       "config-search package version must be 0.1.0",
     );
     expect(current.compilerCalls).toEqual([]);
+  });
+
+  test("limits candidate ownership and clears prior all-release candidates after a later failure", async () => {
+    for (const directory of [
+      "/private/mm-crypto-bot-bot-candidate-1/nested",
+      "/private/mm-crypto-bot-config-search-candidate-1",
+      "/private/mm-crypto-bot-bot-candidate-",
+    ]) {
+      const current = fixture();
+      current.fileSystem.setNextPrivateDirectory(directory);
+      await expect(assembleRelease(current.dependencies, "bot")).rejects.toThrow(
+        "candidate directory escapes",
+      );
+      expect(current.fileSystem.removedDirectories).toEqual([]);
+    }
+    const current = fixture();
+    current.dependencies.compiler.compile = (input) => {
+      if (input.entryPoint.endsWith("config-search/src/index.ts")) {
+        return Promise.reject(new Error("second compiler failure"));
+      }
+      current.fileSystem.addFile(input.outputPath, text.encode("bot payload\n"));
+      return Promise.resolve();
+    };
+    await expect(assembleAllReleases(current.dependencies)).rejects.toThrow("second compiler failure");
+    const cleanup = fixture();
+    cleanup.dependencies.compiler.compile = (input) => {
+      if (input.entryPoint.endsWith("config-search/src/index.ts"))
+        return Promise.reject(new Error("second failure"));
+      cleanup.fileSystem.addFile(input.outputPath, text.encode("bot payload\n"));
+      return Promise.resolve();
+    };
+    const remove = cleanup.dependencies.fileSystem.removePrivateDirectory.bind(
+      cleanup.dependencies.fileSystem,
+    );
+    let removalCount = 0;
+    cleanup.dependencies.fileSystem.removePrivateDirectory = (directory) => {
+      removalCount += 1;
+      return removalCount === 2 ? Promise.reject(new Error("cleanup failure")) : remove(directory);
+    };
+    await expect(assembleAllReleases(cleanup.dependencies)).rejects.toThrow(
+      "private candidate cleanup failed",
+    );
+    expect(removalCount).toEqual(2);
   });
 });

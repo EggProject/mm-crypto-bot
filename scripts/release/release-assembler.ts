@@ -79,10 +79,29 @@ export async function assembleAllReleases(
     await assertAppPreconditions(dependencies, app);
   }
   const results: ReleaseAssemblyResult[] = [];
-  for (const app of releaseApps) {
-    results.push(await assembleValidatedRelease(dependencies, app, identity));
+  try {
+    for (const app of releaseApps) {
+      results.push(await assembleValidatedRelease(dependencies, app, identity));
+    }
+  } catch (error: unknown) {
+    let hasCleanupFailure = false;
+    for (const result of results) {
+      try {
+        await dependencies.fileSystem.removePrivateDirectory(
+          Object.freeze({ path: result.candidate.directory }),
+        );
+      } catch {
+        hasCleanupFailure = true;
+      }
+    }
+    if (hasCleanupFailure) throw privateCandidateCleanupError();
+    throw error;
   }
   return Object.freeze(results);
+}
+
+function privateCandidateCleanupError(): Error {
+  return new Error("release private candidate cleanup failed");
 }
 
 async function assembleValidatedRelease(
@@ -91,39 +110,86 @@ async function assembleValidatedRelease(
   identity: ReleaseBuildIdentity,
 ): Promise<ReleaseAssemblyResult> {
   const paths = appPaths(dependencies.repositoryRoot, app);
-  const candidateDirectory = await dependencies.fileSystem.mkdtemp({
-    parentDirectory: dependencies.temporaryRoot,
-    prefix: `mm-crypto-bot-${app}-candidate-`,
-  });
-  assertWithin(dependencies.temporaryRoot, candidateDirectory.path, "release candidate directory");
-  const executablePath = path.join(candidateDirectory.path, paths.executableName);
-  assertWithin(candidateDirectory.path, executablePath, "private compiler output");
-  await dependencies.compiler.compile({
-    entryPoint: paths.entryPoint,
-    outputPath: executablePath,
-    target: releaseTarget,
-  });
-  await assertCompilerOutput(dependencies, executablePath);
-  await dependencies.fileSystem.chmod(executablePath, 0o755);
-  const executableBytes = await dependencies.fileSystem.readFile(executablePath);
-
-  const readmeBytes = encoder.encode(readme(app, paths.executableName));
-  const manifest = manifestFor(app, identity, readmeBytes, executableBytes);
-  const manifestBytes = encoder.encode(canonicalJson(manifest));
-  const zipBytes = encodeStoreZip(
-    [
-      { bytes: readmeBytes, mode: 0o644, path: "README.md" },
-      { bytes: executableBytes, mode: 0o755, path: `bin/${paths.executableName}` },
-      { bytes: manifestBytes, mode: 0o644, path: "manifest.json" },
-    ],
-    identity.sourceDateEpoch,
-  );
-  const candidate = await writePrivateCandidate(dependencies, candidateDirectory, app, zipBytes);
-  await dependencies.fileSystem.removeFile(executablePath);
-  if ((await dependencies.fileSystem.inspectPath(executablePath)) !== "missing") {
-    throw new Error("compiled executable remains in the private candidate");
+  let candidateDirectory: ReleasePrivateDirectory | undefined;
+  try {
+    candidateDirectory = validateCandidateDirectory(
+      dependencies.temporaryRoot,
+      app,
+      await dependencies.fileSystem.mkdtemp({
+        parentDirectory: dependencies.temporaryRoot,
+        prefix: `mm-crypto-bot-${app}-candidate-`,
+      }),
+    );
+    const executablePath = path.join(candidateDirectory.path, paths.executableName);
+    await dependencies.compiler.compile({
+      entryPoint: paths.entryPoint,
+      outputPath: executablePath,
+      target: releaseTarget,
+    });
+    await assertCompilerOutput(dependencies, executablePath);
+    await dependencies.fileSystem.chmod(executablePath, 0o755);
+    const executableBytes = await dependencies.fileSystem.readFile(executablePath);
+    const readmeBytes = encoder.encode(readme(app, paths.executableName));
+    const manifest = manifestFor(app, identity, readmeBytes, executableBytes);
+    const zipBytes = encodeStoreZip(
+      [
+        { bytes: readmeBytes, mode: 0o644, path: "README.md" },
+        { bytes: executableBytes, mode: 0o755, path: `bin/${paths.executableName}` },
+        { bytes: encoder.encode(canonicalJson(manifest)), mode: 0o644, path: "manifest.json" },
+      ],
+      identity.sourceDateEpoch,
+    );
+    const candidate = await writePrivateCandidate(dependencies, candidateDirectory, app, zipBytes);
+    await dependencies.fileSystem.removeFile(executablePath);
+    if ((await dependencies.fileSystem.inspectPath(executablePath)) !== "missing") {
+      throw new Error("compiled executable remains in the private candidate");
+    }
+    return Object.freeze({ candidate, manifest });
+  } catch (error: unknown) {
+    if (candidateDirectory !== undefined) {
+      try {
+        await dependencies.fileSystem.removePrivateDirectory(candidateDirectory);
+      } catch {
+        throw new Error("release private candidate cleanup failed");
+      }
+    }
+    throw error;
   }
-  return Object.freeze({ candidate, manifest });
+}
+
+function validateCandidateDirectory(
+  temporaryRoot: string,
+  app: ReleaseApp,
+  value: unknown,
+): ReleasePrivateDirectory {
+  try {
+    if (typeof value !== "object" || value === null || Object.getPrototypeOf(value) !== Object.prototype) {
+      throw new Error("release candidate directory escapes its allowed root");
+    }
+    const keys = Reflect.ownKeys(value);
+    const descriptor = Object.getOwnPropertyDescriptor(value, "path");
+    if (descriptor === undefined || !("value" in descriptor) || keys.length !== 1 || keys[0] !== "path") {
+      throw new Error("release candidate directory escapes its allowed root");
+    }
+    if (typeof descriptor.value !== "string")
+      throw new Error("release candidate directory escapes its allowed root");
+    if (!isExpectedCandidateDirectory(temporaryRoot, app, descriptor.value)) {
+      throw new Error("release candidate directory escapes its allowed root");
+    }
+    return Object.freeze({ path: descriptor.value });
+  } catch {
+    throw new Error("release candidate directory escapes its allowed root");
+  }
+}
+
+function isExpectedCandidateDirectory(temporaryRoot: string, app: ReleaseApp, directory: string): boolean {
+  const prefix = `mm-crypto-bot-${app}-candidate-`;
+  const basename = path.basename(directory);
+  return (
+    path.dirname(directory) === temporaryRoot &&
+    basename.startsWith(prefix) &&
+    basename.length > prefix.length
+  );
 }
 
 async function assertAppPreconditions(dependencies: ReleaseDependencies, app: ReleaseApp): Promise<void> {
@@ -311,8 +377,6 @@ async function writePrivateCandidate(
   const zipBasename = `mm-crypto-bot-${app}-${releaseVersion}-${releaseTarget}.zip`;
   const zipPath = path.join(candidateDirectory.path, zipBasename);
   const sidecarPath = `${zipPath}.sha256`;
-  assertWithin(candidateDirectory.path, zipPath, "candidate ZIP artifact");
-  assertWithin(candidateDirectory.path, sidecarPath, "candidate sidecar artifact");
   const sidecarBytes = encoder.encode(formatSha256Sidecar(sha256Hex(zipBytes), zipBasename));
   await dependencies.fileSystem.writeFile(sidecarPath, sidecarBytes, 0o644);
   await dependencies.fileSystem.writeFile(zipPath, zipBytes, 0o644);
@@ -330,16 +394,4 @@ function readme(app: ReleaseApp, executableName: string): string {
     "All runtime configuration, secrets, state, and data are external through MM_CRYPTO_BOT_RUNTIME_ROOT.",
     "",
   ].join("\n");
-}
-
-function assertWithin(root: string, candidate: string, label: string): void {
-  const relativePath = path.relative(path.resolve(root), path.resolve(candidate));
-  if (
-    relativePath === "" ||
-    relativePath === ".." ||
-    relativePath.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relativePath)
-  ) {
-    throw new Error(`${label} escapes its allowed root`);
-  }
 }

@@ -315,4 +315,122 @@ describe("verified release smoke", () => {
       "release smoke cleanup failed",
     );
   });
+
+  test("cleans partial extraction and rejects malformed extraction or process records", async () => {
+    // Catches unremoved partial extraction, hostile temporary descriptors, and invalid process result types.
+    const partial = candidate("bot");
+    partial.fileSystem.failNextWrite();
+    await expect(extractVerifiedRelease(partial.dependencies, partial.artifact)).rejects.toThrow(
+      "release extraction failed",
+    );
+    expect(partial.fileSystem.removedDirectories).toHaveLength(1);
+    const cleanup = candidate("bot");
+    cleanup.fileSystem.failNextWrite();
+    cleanup.fileSystem.failNextDirectoryRemoval();
+    await expect(extractVerifiedRelease(cleanup.dependencies, cleanup.artifact)).rejects.toThrow(
+      "release extraction cleanup failed",
+    );
+    const escaped = candidate("bot");
+    escaped.fileSystem.setNextPrivateDirectory("/private/not-owned");
+    await expect(extractVerifiedRelease(escaped.dependencies, escaped.artifact)).rejects.toThrow(
+      "release extraction failed",
+    );
+    const missingTemporary = candidate("bot");
+    missingTemporary.fileSystem.failNextMkdtemp();
+    await expect(
+      extractVerifiedRelease(missingTemporary.dependencies, missingTemporary.artifact),
+    ).rejects.toThrow("release extraction failed");
+    const invalidProcess = candidate("bot");
+    invalidProcess.fileSystem.queueProcess({ exitCode: 1.5, stderr: "", stdout: "" });
+    await expect(smokeVerifiedRelease(invalidProcess.dependencies, invalidProcess.artifact)).rejects.toThrow(
+      "release smoke failed",
+    );
+    const malformed = candidate("bot");
+    malformed.fileSystem.setNextPrivateDirectoryValue(
+      new Proxy({ path: "/private/release-extraction-1" }, { ownKeys: () => ["path", "extra"] }),
+    );
+    await expect(extractVerifiedRelease(malformed.dependencies, malformed.artifact)).rejects.toThrow(
+      "release extraction failed",
+    );
+    const hostile = candidate("bot");
+    const proxy = new Proxy(hostile.artifact, { getPrototypeOf: () => Object.freeze({}) });
+    await expect(extractVerifiedRelease(hostile.dependencies, proxy)).rejects.toThrow(
+      "invalid release private candidate",
+    );
+    class HostileCandidate {
+      readonly directory = "/private/release-candidate-1";
+      readonly sidecarPath = "/private/release-candidate-1/archive.zip.sha256";
+      readonly zipPath = "/private/release-candidate-1/archive.zip";
+    }
+    const classCandidate = candidate("bot");
+    await expect(extractVerifiedRelease(classCandidate.dependencies, new HostileCandidate())).rejects.toThrow(
+      "invalid release private candidate",
+    );
+    const invalidArchive = candidate("bot");
+    invalidArchive.fileSystem.addFile(invalidArchive.artifact.zipPath, new Uint8Array([0]));
+    await expect(smokeVerifiedRelease(invalidArchive.dependencies, invalidArchive.artifact)).rejects.toThrow(
+      "invalid release",
+    );
+    const invalidHelp = candidate("config-search");
+    invalidHelp.fileSystem.queueProcess({ exitCode: 0, stderr: "wrong", stdout: "" });
+    await expect(smokeVerifiedRelease(invalidHelp.dependencies, invalidHelp.artifact)).rejects.toThrow(
+      "release smoke failed",
+    );
+    const invalidStatus = candidate("config-search");
+    invalidStatus.fileSystem.queueProcess(
+      { exitCode: 0, stderr: "", stdout: "Usage: mm-crypto-bot-config-search [--status | --help]\n" },
+      { exitCode: 0, stderr: "", stdout: unavailableJson },
+    );
+    await expect(smokeVerifiedRelease(invalidStatus.dependencies, invalidStatus.artifact)).rejects.toThrow(
+      "release smoke failed",
+    );
+  });
+
+  test("never removes an unproven extraction directory and requires a nonempty suffix", async () => {
+    // Catches cleanup of hostile mkdtemp output before ownership is proven.
+    for (const configure of [
+      (current: ReturnType<typeof candidate>): void => {
+        current.fileSystem.setNextPrivateDirectory("/private/not-owned");
+      },
+      (current: ReturnType<typeof candidate>): void => {
+        current.fileSystem.setNextPrivateDirectory("/private/release-extraction-");
+      },
+      (current: ReturnType<typeof candidate>): void => {
+        current.fileSystem.setNextPrivateDirectoryValue(
+          new Proxy(
+            { path: "/private/release-extraction-1" },
+            {
+              getOwnPropertyDescriptor: (): never => {
+                throw new Error("extraction descriptor trap");
+              },
+            },
+          ),
+        );
+      },
+      (current: ReturnType<typeof candidate>): void => {
+        current.fileSystem.setNextPrivateDirectoryValue(
+          new Proxy(
+            { path: "/private/release-extraction-1" },
+            {
+              getOwnPropertyDescriptor: () => ({
+                configurable: true,
+                enumerable: true,
+                value: 1,
+                writable: true,
+              }),
+            },
+          ),
+        );
+      },
+    ]) {
+      const current = candidate("bot");
+      configure(current);
+      await expect(extractVerifiedRelease(current.dependencies, current.artifact)).rejects.toThrow(
+        "release extraction failed",
+      );
+      expect(current.fileSystem.removedDirectories).toEqual([]);
+      expect(current.fileSystem.writeOperations).toEqual([]);
+      expect(current.fileSystem.processOperations).toEqual([]);
+    }
+  });
 });

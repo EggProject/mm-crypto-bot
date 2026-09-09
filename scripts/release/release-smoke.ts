@@ -34,10 +34,32 @@ interface CandidatePaths {
   readonly zipPath: string;
 }
 
+export interface VerifiedPrivateCandidateArchive {
+  readonly manifest: ReleaseManifestV1;
+  readonly sidecarBytes: Uint8Array;
+  readonly zipBytes: Uint8Array;
+}
+
 export async function extractVerifiedRelease(
   dependencies: ReleaseDependencies,
   artifact: ReleasePrivateCandidate,
 ): Promise<ExtractedRelease> {
+  const verified = await readVerifiedPrivateCandidate(dependencies, artifact);
+  const entries = parseStoreZip(verified.zipBytes).entries;
+  const payloads = extractedPayloadBytes(entries);
+  return writeExtraction(
+    dependencies,
+    verified.manifest,
+    payloads.readme,
+    payloads.manifest,
+    payloads.executable,
+  );
+}
+
+export async function readVerifiedPrivateCandidate(
+  dependencies: ReleaseDependencies,
+  artifact: ReleasePrivateCandidate,
+): Promise<VerifiedPrivateCandidateArchive> {
   const candidate = validateCandidate(dependencies.temporaryRoot, artifact);
   const { sidecarBytes, zipBytes } = await readCandidateBytes(dependencies, candidate);
   const manifest = await verifyReleaseArchive({
@@ -45,9 +67,11 @@ export async function extractVerifiedRelease(
     zipBasename: path.basename(candidate.zipPath),
     zipBytes,
   });
-  const entries = parseStoreZip(zipBytes).entries;
-  const payloads = extractedPayloadBytes(entries);
-  return writeExtraction(dependencies, manifest, payloads.readme, payloads.manifest, payloads.executable);
+  return Object.freeze({
+    manifest: freezeManifest(manifest),
+    sidecarBytes: new Uint8Array(sidecarBytes),
+    zipBytes: new Uint8Array(zipBytes),
+  });
 }
 
 export async function smokeVerifiedRelease(
@@ -116,11 +140,12 @@ async function writeExtraction(
 ): Promise<ExtractedRelease> {
   let directory: ReleasePrivateDirectory | undefined;
   try {
-    directory = await dependencies.fileSystem.mkdtemp({
+    const rawDirectory = await dependencies.fileSystem.mkdtemp({
       parentDirectory: dependencies.temporaryRoot,
       prefix: "release-extraction-",
     });
-    const rootDirectory = validateExtractionDirectory(dependencies.temporaryRoot, directory);
+    const rootDirectory = validateExtractionDirectory(dependencies.temporaryRoot, rawDirectory);
+    directory = Object.freeze({ path: rootDirectory });
     const binaryDirectory = path.join(rootDirectory, "bin");
     const executablePath = path.join(binaryDirectory, `mm-crypto-bot-${manifest.app}`);
     await dependencies.fileSystem.mkdir(binaryDirectory, 0o755);
@@ -146,10 +171,13 @@ function validateExtractionDirectory(temporaryRoot: string, value: unknown): str
     throw new Error("invalid extraction directory");
   }
   const [directory] = values;
+  const prefix = "release-extraction-";
+  const basename = typeof directory === "string" ? path.basename(directory) : "";
   if (
     typeof directory !== "string" ||
     !isImmediateChild(temporaryRoot, directory) ||
-    !path.basename(directory).startsWith("release-extraction-")
+    !basename.startsWith(prefix) ||
+    basename.length <= prefix.length
   ) {
     throw new Error("invalid extraction directory");
   }
@@ -258,6 +286,16 @@ function freezeExtractedRelease(
       toolchain: Object.freeze({ ...manifest.toolchain }),
     }),
     rootDirectory,
+  });
+}
+
+function freezeManifest(manifest: ReleaseManifestV1): ReleaseManifestV1 {
+  return Object.freeze({
+    ...manifest,
+    configuration: Object.freeze({ ...manifest.configuration }),
+    payloads: freezePayloads(manifest.payloads),
+    target: Object.freeze({ ...manifest.target }),
+    toolchain: Object.freeze({ ...manifest.toolchain }),
   });
 }
 
