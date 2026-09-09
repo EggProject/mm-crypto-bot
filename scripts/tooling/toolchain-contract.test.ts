@@ -99,6 +99,23 @@ test("root release verification consumer command invokes the artifact verifier",
   expect(manifest["scripts"]["release:verify"]).toBe("bun scripts/release/verify.ts");
 });
 
+test("root release coverage consumers use the exact publication-independent commands", async () => {
+  // Catches a missing or altered public release coverage consumer command.
+  const manifest: unknown = JSON.parse(await readRepoFile("package.json"));
+
+  if (!isRecord(manifest) || !isRecord(manifest["scripts"])) {
+    throw new Error("Expected root package manifest scripts to be a record");
+  }
+
+  expect(manifest["scripts"]["coverage:release:unit"]).toBe(
+    "bun scripts/release/release-coverage.ts --level=unit",
+  );
+  expect(manifest["scripts"]["coverage:release:e2e"]).toBe(
+    "bun scripts/release/release-coverage.ts --level=e2e",
+  );
+  expect(manifest["scripts"]["coverage:release"]).toBe("bun scripts/release/release-coverage.ts --level=all");
+});
+
 test("Slice A maps the approved hook integration and formatting contract", async () => {
   const [standards, lefthook, prettier] = await Promise.all([
     readRepoFile(".codex/ENGINEERING-STANDARDS.md"),
