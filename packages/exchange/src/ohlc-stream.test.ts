@@ -324,7 +324,18 @@ describe("OhlcStream public boundaries", () => {
     const nonEnumerableOptions = {};
     Object.defineProperty(nonEnumerableOptions, "unexpected", { value: true });
     const unexpectedSymbol = Symbol("unexpected");
-    const invalidOptions = [{ unexpected: true }, nonEnumerableOptions, { [unexpectedSymbol]: true }];
+    const getterReadError = new Error("unexpected option getter was read");
+    const getterOptions = {
+      get unexpected(): never {
+        throw getterReadError;
+      },
+    };
+    const invalidOptions = [
+      { unexpected: true },
+      nonEnumerableOptions,
+      { [unexpectedSymbol]: true },
+      getterOptions,
+    ];
 
     for (const options of invalidOptions) {
       expectConstructionToThrowBeforeFeedIo(options, UNKNOWN_OPTION_KEY_ERROR);
