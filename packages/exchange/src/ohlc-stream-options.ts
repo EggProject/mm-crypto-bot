@@ -52,13 +52,10 @@ function isOptionsRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function assertKnownOhlcStreamOptionKeys(options: Record<string, unknown>): void {
-  for (const key of Object.getOwnPropertyNames(options)) {
-    if (!OHLC_STREAM_OPTION_KEYS.has(key)) {
+  for (const key of Reflect.ownKeys(options)) {
+    if (typeof key === "symbol" || !OHLC_STREAM_OPTION_KEYS.has(key)) {
       throw new TypeError("OhlcStream options must contain only timeframes, bufferSize, and symbols");
     }
-  }
-  if (Object.getOwnPropertySymbols(options).length > 0) {
-    throw new TypeError("OhlcStream options must contain only timeframes, bufferSize, and symbols");
   }
 }
 

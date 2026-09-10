@@ -306,6 +306,44 @@ describe("OhlcStream public boundaries", () => {
     }
   });
 
+  it("rejects a stateful options proxy that hides an own symbol key before feed I/O", () => {
+    const unexpectedSymbol = Symbol("unexpected");
+    let ownKeysCalls = 0;
+    const options = new Proxy(
+      {},
+      {
+        ownKeys: () => {
+          ownKeysCalls += 1;
+          return ownKeysCalls === 1 ? [unexpectedSymbol] : [];
+        },
+      },
+    );
+    const feed = new BoundaryRecordingFeed();
+
+    expect(() => {
+      constructAtJavaScriptBoundary(feed, options);
+    }).toThrow("OhlcStream options must contain only timeframes, bufferSize, and symbols");
+    expectNoFeedIo(feed);
+  });
+
+  it("fails closed when an options proxy ownKeys trap throws before feed I/O", () => {
+    const failure = new Error("ownKeys failure");
+    const options = new Proxy(
+      {},
+      {
+        ownKeys: () => {
+          throw failure;
+        },
+      },
+    );
+    const feed = new BoundaryRecordingFeed();
+
+    expect(() => {
+      constructAtJavaScriptBoundary(feed, options);
+    }).toThrow(failure);
+    expectNoFeedIo(feed);
+  });
+
   it("rejects unsupported, non-string, and empty symbol lists before feed I/O", () => {
     const invalidSymbols = [["DOGE/USDC"], [42], [""], []];
     for (const symbols of invalidSymbols) {
