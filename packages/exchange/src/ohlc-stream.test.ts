@@ -172,6 +172,26 @@ describe("RingBuffer", () => {
     }
   });
 
+  it("rejects capacity redefinition and preserves bounded retention", () => {
+    const buffer = new RingBuffer<number>(2);
+    expect(() => Object.defineProperty(buffer, "capacity", { value: Infinity })).toThrow(TypeError);
+    expect(buffer.capacity).toBe(2);
+    buffer.push(1);
+    buffer.push(2);
+    buffer.push(3);
+    expect(buffer.toArray()).toEqual([2, 3]);
+  });
+
+  it("allows subclasses to initialize their own public fields", () => {
+    class NamedRingBuffer extends RingBuffer<number> {
+      readonly label = "primary";
+    }
+
+    const buffer = new NamedRingBuffer(2);
+    expect(buffer.label).toBe("primary");
+    expect(buffer.capacity).toBe(2);
+  });
+
   it("push + toArray, méret növekszik a kapacitásig", () => {
     const rb = new RingBuffer<number>(3);
     expect(rb.size).toBe(0);

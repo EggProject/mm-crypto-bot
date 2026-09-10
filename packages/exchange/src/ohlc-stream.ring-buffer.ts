@@ -4,25 +4,27 @@ export class RingBuffer<T> {
   private readonly items: T[] = [];
   private cursor = 0;
   readonly #capacity: number;
+  declare readonly capacity: number;
 
   constructor(capacity: number) {
     if (!Number.isSafeInteger(capacity) || capacity <= 0 || capacity > MAX_RING_BUFFER_CAPACITY) {
       throw new Error(`RingBuffer: capacity must be a positive integer, got ${String(capacity)}`);
     }
     this.#capacity = capacity;
-  }
-
-  get capacity(): number {
-    return this.#capacity;
+    Object.defineProperty(this, "capacity", {
+      configurable: false,
+      enumerable: false,
+      get: () => this.#capacity,
+    });
   }
 
   push(item: T): void {
-    if (this.items.length < this.capacity) {
+    if (this.items.length < this.#capacity) {
       this.items.push(item);
       return;
     }
     this.items[this.cursor] = item;
-    this.cursor = (this.cursor + 1) % this.capacity;
+    this.cursor = (this.cursor + 1) % this.#capacity;
   }
 
   get size(): number {
@@ -30,7 +32,7 @@ export class RingBuffer<T> {
   }
 
   *values(): IterableIterator<T> {
-    if (this.items.length < this.capacity) {
+    if (this.items.length < this.#capacity) {
       yield* this.items;
       return;
     }
