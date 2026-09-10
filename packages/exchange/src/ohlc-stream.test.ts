@@ -21,6 +21,9 @@ import type { Ohlcv, Symbol, Trade } from "./types.js";
 
 const SYM = asSymbol("BTC/USDC");
 const OTHER_SYM = asSymbol("ETH/USDC");
+const UNKNOWN_OPTION_KEY_ERROR = "OhlcStream options must contain only timeframes, bufferSize, and symbols";
+const INVALID_BUFFER_SIZE_ERROR =
+  "OhlcStream bufferSize must be a positive safe integer no greater than 10000";
 
 class EventInjectingFeed extends MockExchangeFeed {
   subscribeTradesCalls = 0;
@@ -78,18 +81,14 @@ const EventEmitterBase = EventEmitter;
 
 class TestEventEmitter extends EventEmitterBase {}
 
-type EventEmitterConstructor = new () => EventEmitter;
-
 function tradeFor(symbol: Symbol, timestamp = 1_700_000_400_000): Trade {
   return { id: `trade-${String(timestamp)}`, symbol, timestamp, price: 100, amount: 1, takerSide: "buy" };
 }
 
-function createEventEmitter(): EventEmitter {
-  return constructEventEmitter(TestEventEmitter);
-}
+const createEventEmitter = (): EventEmitter => new TestEventEmitter();
 
-function constructEventEmitter(EventEmitterClass: EventEmitterConstructor): EventEmitter {
-  return new EventEmitterClass();
+function singleSymbolOhlcStreamOptions(): OhlcStreamOptions {
+  return { bufferSize: 2, symbols: [SYM], timeframes: ["1m"] };
 }
 
 function expectNoFeedIo(feed: BoundaryRecordingFeed): void {
@@ -100,6 +99,20 @@ function expectNoFeedIo(feed: BoundaryRecordingFeed): void {
 
 function constructAtJavaScriptBoundary(feed: BoundaryRecordingFeed, options: unknown): void {
   Reflect.construct(OhlcStream, [feed, createEventEmitter(), options]);
+}
+
+function expectConstructionToThrowBeforeFeedIo(options: unknown, expected?: string | Error): void {
+  const feed = new BoundaryRecordingFeed();
+  const construct = (): void => {
+    constructAtJavaScriptBoundary(feed, options);
+  };
+  if (expected === undefined) expect(construct).toThrow();
+  else expect(construct).toThrow(expected);
+  expectNoFeedIo(feed);
+}
+
+function throwError(error: Error): never {
+  throw error;
 }
 
 function expectDeeplyImmutableConfig(config: OhlcStreamConfig): void {
@@ -119,6 +132,18 @@ function expectDeeplyImmutableConfig(config: OhlcStreamConfig): void {
     }
   }
 }
+
+const ohlcBarFixture = (): OhlcBar => ({
+  timestamp: 1,
+  symbol: SYM,
+  timeframe: "1m",
+  open: 10,
+  high: 11,
+  low: 9,
+  close: 10.5,
+  volume: 100,
+  tradeCount: 2,
+});
 
 describe("RingBuffer", () => {
   it("konstruktor elutasítja a nem-pozitív kapacitást", () => {
@@ -193,30 +218,18 @@ describe("RingBuffer", () => {
 });
 
 describe("alignToTimeframe", () => {
-  it("1m grid: levágja a másodpercet és a milli-szekundumot", () => {
-    // 1_700_000_400_000 % 60_000 = 20_000, így az 1m grid a 1_700_000_400_000.
-    // 1_700_000_123_456 % 60_000 = 23_456, így az 1m grid a 1_700_000_100_000.
+  it("aligns standard grids", () => {
     expect(alignToTimeframe(1_700_000_123_456, "1m")).toBe(1_700_000_100_000);
-  });
-  it("5m grid: az 5-perces ablak elejére kerekít", () => {
-    // 1_700_000_123_000 % 300_000 = 23_000, így az 5m grid a 1_700_000_100_000.
     expect(alignToTimeframe(1_700_000_123_000, "5m")).toBe(1_700_000_100_000);
-  });
-  it("1h grid: a pontos óra-határra kerekít", () => {
     const h1 = alignToTimeframe(1_700_001_234_000, "1h");
     expect(h1 % (60 * 60_000)).toBe(0);
     expect(h1).toBeLessThanOrEqual(1_700_001_234_000);
-  });
-  it("1d grid: az adott nap UTC-éjfélre kerekít", () => {
     const d1 = alignToTimeframe(1_700_001_234_000, "1d");
     expect(d1 % (24 * 60 * 60_000)).toBe(0);
   });
   it("pontosan grid-határon lévő timestamp változatlan marad", () => {
-    // 1_700_000_100_000 pontosan az 1m grid-en.
     const aligned = 1_700_000_100_000;
     expect(alignToTimeframe(aligned, "1m")).toBe(aligned);
-    // Számoljuk ki: 1_700_000_400_000 — 1_700_000_400_000 % 300_000 = ?
-    // 1_700_000_400_000 / 300_000 = 5666668, 5666668 * 300_000 = 1_700_000_400_000 — IGEN, pontos.
     const alignedGrid5m = 1_700_000_400_000;
     expect(alignToTimeframe(alignedGrid5m, "5m")).toBe(alignedGrid5m);
   });
@@ -283,11 +296,7 @@ describe("OhlcStream public boundaries", () => {
   it("rejects non-object JavaScript options before feed I/O", () => {
     const nullOptions = /not-present/u.exec("options");
     for (const options of [nullOptions, [], 0]) {
-      const feed = new BoundaryRecordingFeed();
-      expect(() => {
-        constructAtJavaScriptBoundary(feed, options);
-      }).toThrow("OhlcStream options must be an object");
-      expectNoFeedIo(feed);
+      expectConstructionToThrowBeforeFeedIo(options, "OhlcStream options must be an object");
     }
   });
 
@@ -298,23 +307,18 @@ describe("OhlcStream public boundaries", () => {
     const invalidOptions = [{ unexpected: true }, nonEnumerableOptions, { [unexpectedSymbol]: true }];
 
     for (const options of invalidOptions) {
-      const feed = new BoundaryRecordingFeed();
-      expect(() => {
-        constructAtJavaScriptBoundary(feed, options);
-      }).toThrow("OhlcStream options must contain only timeframes, bufferSize, and symbols");
-      expectNoFeedIo(feed);
+      expectConstructionToThrowBeforeFeedIo(options, UNKNOWN_OPTION_KEY_ERROR);
     }
   });
 
-  it("rejects a stateful options proxy that hides an own symbol key before feed I/O", () => {
-    const unexpectedSymbol = Symbol("unexpected");
+  it("reads options proxy own keys exactly once before feed I/O", () => {
     let ownKeysCalls = 0;
     const options = new Proxy(
       {},
       {
         ownKeys: () => {
           ownKeysCalls += 1;
-          return ownKeysCalls === 1 ? [unexpectedSymbol] : [];
+          return ownKeysCalls === 1 ? [] : [Symbol("unexpected")];
         },
       },
     );
@@ -322,36 +326,39 @@ describe("OhlcStream public boundaries", () => {
 
     expect(() => {
       constructAtJavaScriptBoundary(feed, options);
-    }).toThrow("OhlcStream options must contain only timeframes, bufferSize, and symbols");
+    }).not.toThrow();
+    expect(ownKeysCalls).toBe(1);
     expectNoFeedIo(feed);
   });
 
-  it("fails closed when an options proxy ownKeys trap throws before feed I/O", () => {
-    const failure = new Error("ownKeys failure");
-    const options = new Proxy(
-      {},
+  it("fails closed for options proxy and descriptor boundary failures before feed I/O", () => {
+    const ownKeysFailure = new Error("ownKeys failure");
+    const getterFailure = new Error("getter failure");
+    const descriptorFailure = new Error("descriptor failure");
+    const getterOptions = {};
+    Object.defineProperty(getterOptions, "timeframes", { get: () => throwError(getterFailure) });
+    const cases: readonly { readonly options: object; readonly expected?: Error }[] = [
       {
-        ownKeys: () => {
-          throw failure;
-        },
+        options: new Proxy(Object.preventExtensions({}), { ownKeys: () => ["unexpected"] }),
       },
-    );
-    const feed = new BoundaryRecordingFeed();
+      {
+        options: new Proxy({}, { ownKeys: () => throwError(ownKeysFailure) }),
+        expected: ownKeysFailure,
+      },
+      { options: getterOptions, expected: getterFailure },
+      {
+        options: new Proxy({}, { getOwnPropertyDescriptor: () => throwError(descriptorFailure) }),
+        expected: descriptorFailure,
+      },
+    ];
 
-    expect(() => {
-      constructAtJavaScriptBoundary(feed, options);
-    }).toThrow(failure);
-    expectNoFeedIo(feed);
+    for (const { options, expected } of cases) expectConstructionToThrowBeforeFeedIo(options, expected);
   });
 
   it("rejects unsupported, non-string, and empty symbol lists before feed I/O", () => {
     const invalidSymbols = [["DOGE/USDC"], [42], [""], []];
     for (const symbols of invalidSymbols) {
-      const feed = new BoundaryRecordingFeed();
-      expect(() => {
-        constructAtJavaScriptBoundary(feed, { symbols });
-      }).toThrow();
-      expectNoFeedIo(feed);
+      expectConstructionToThrowBeforeFeedIo({ symbols });
     }
   });
 
@@ -369,11 +376,7 @@ describe("OhlcStream public boundaries", () => {
       Number.MAX_SAFE_INTEGER + 1,
     ];
     for (const bufferSize of invalidBufferSizes) {
-      const feed = new BoundaryRecordingFeed();
-      expect(() => {
-        constructAtJavaScriptBoundary(feed, { bufferSize });
-      }).toThrow("OhlcStream bufferSize must be a positive safe integer no greater than 10000");
-      expectNoFeedIo(feed);
+      expectConstructionToThrowBeforeFeedIo({ bufferSize }, INVALID_BUFFER_SIZE_ERROR);
     }
   });
 
@@ -395,11 +398,7 @@ describe("OhlcStream public boundaries", () => {
   it("ignores a ticker event and processes the subsequent real trade from a valid feed", async () => {
     const feed = new EventInjectingFeed();
     feed.setOhlcv(SYM, "1m", []);
-    const stream = new OhlcStream(feed, createEventEmitter(), {
-      timeframes: ["1m"],
-      bufferSize: 2,
-      symbols: [SYM],
-    });
+    const stream = new OhlcStream(feed, createEventEmitter(), singleSymbolOhlcStreamOptions());
     await stream.start();
     stream.ingest(tradeFor(SYM, 1_700_000_460_000));
     expect(feed.subscribeTradesCalls).toBe(1);
@@ -418,11 +417,11 @@ describe("OhlcStream public boundaries", () => {
       emitter.on("error", (event: OhlcStreamErrorEvent) => {
         errors.push(event);
       });
-      const stream = new OhlcStream(new UnsubscribeFailureFeed(failure), emitter, {
-        timeframes: ["1m"],
-        bufferSize: 2,
-        symbols: [SYM],
-      });
+      const stream = new OhlcStream(
+        new UnsubscribeFailureFeed(failure),
+        emitter,
+        singleSymbolOhlcStreamOptions(),
+      );
       await stream.start();
       await stream.stop();
       expect(errors).toHaveLength(1);
@@ -433,11 +432,7 @@ describe("OhlcStream public boundaries", () => {
   it("backfills a configured symbol and ignores an unknown symbol", async () => {
     const feed = new MockExchangeFeed();
     await feed.open();
-    const stream = new OhlcStream(feed, createEventEmitter(), {
-      timeframes: ["1m"],
-      bufferSize: 2,
-      symbols: [SYM],
-    });
+    const stream = new OhlcStream(feed, createEventEmitter(), singleSymbolOhlcStreamOptions());
     const ohlcv: Ohlcv = [1_700_000_400_000, 100, 110, 90, 105, 1];
     feed.setOhlcv(SYM, "1m", [ohlcv]);
     await stream.backfill(SYM, "1m", 2);
@@ -452,11 +447,7 @@ describe("OhlcStream public boundaries", () => {
     emitter.on("bar", (event: OhlcStreamBarEvent) => {
       events.push(event);
     });
-    const stream = new OhlcStream(new MockExchangeFeed(), emitter, {
-      timeframes: ["1m"],
-      bufferSize: 2,
-      symbols: [SYM],
-    });
+    const stream = new OhlcStream(new MockExchangeFeed(), emitter, singleSymbolOhlcStreamOptions());
     stream.ingest(tradeFor(SYM));
     stream.ingest(tradeFor(SYM, 1_700_000_460_000));
     stream.ingest(tradeFor(OTHER_SYM));
@@ -468,39 +459,10 @@ describe("OhlcStream public boundaries", () => {
 });
 
 describe("barsToCandles + barsToOhlcv", () => {
-  it("barsToCandles visszaadja a Candle shape-et, volume mezővel együtt", () => {
-    const bars: OhlcBar[] = [
-      {
-        timestamp: 1,
-        symbol: SYM,
-        timeframe: "1m",
-        open: 10,
-        high: 11,
-        low: 9,
-        close: 10.5,
-        volume: 100,
-        tradeCount: 2,
-      },
-    ];
-    const candles = barsToCandles(bars);
-    expect(candles).toEqual([{ timestamp: 1, open: 10, high: 11, low: 9, close: 10.5, volume: 100 }]);
-  });
-
-  it("barsToOhlcv a CCXT tuple formátumot adja vissza", () => {
-    const bars: OhlcBar[] = [
-      {
-        timestamp: 1,
-        symbol: SYM,
-        timeframe: "1m",
-        open: 10,
-        high: 11,
-        low: 9,
-        close: 10.5,
-        volume: 100,
-        tradeCount: 2,
-      },
-    ];
-    const ohlcv = barsToOhlcv(bars);
-    expect(ohlcv).toEqual([[1, 10, 11, 9, 10.5, 100]]);
+  it("converts bars to candles and CCXT OHLCV", () => {
+    expect(barsToCandles([ohlcBarFixture()])).toEqual([
+      { timestamp: 1, open: 10, high: 11, low: 9, close: 10.5, volume: 100 },
+    ]);
+    expect(barsToOhlcv([ohlcBarFixture()])).toEqual([[1, 10, 11, 9, 10.5, 100]]);
   });
 });
