@@ -291,6 +291,21 @@ describe("OhlcStream public boundaries", () => {
     }
   });
 
+  it("rejects unknown own option keys before feed I/O", () => {
+    const nonEnumerableOptions = {};
+    Object.defineProperty(nonEnumerableOptions, "unexpected", { value: true });
+    const unexpectedSymbol = Symbol("unexpected");
+    const invalidOptions = [{ unexpected: true }, nonEnumerableOptions, { [unexpectedSymbol]: true }];
+
+    for (const options of invalidOptions) {
+      const feed = new BoundaryRecordingFeed();
+      expect(() => {
+        constructAtJavaScriptBoundary(feed, options);
+      }).toThrow("OhlcStream options must contain only timeframes, bufferSize, and symbols");
+      expectNoFeedIo(feed);
+    }
+  });
+
   it("rejects unsupported, non-string, and empty symbol lists before feed I/O", () => {
     const invalidSymbols = [["DOGE/USDC"], [42], [""], []];
     for (const symbols of invalidSymbols) {

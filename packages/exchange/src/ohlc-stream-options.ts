@@ -37,6 +37,7 @@ export const DEFAULT_OHLC_STREAM_CONFIG = freezeOhlcStreamConfig(
 );
 
 const MAX_OHLC_STREAM_BUFFER_SIZE = 10_000;
+const OHLC_STREAM_OPTION_KEYS = new Set<string>(["timeframes", "bufferSize", "symbols"]);
 const TIMEFRAME_DURATIONS: Readonly<Record<Timeframe, number>> = {
   "1m": TIMEFRAME_MS["1m"],
   "5m": TIMEFRAME_MS["5m"],
@@ -48,6 +49,17 @@ const TIMEFRAME_DURATIONS: Readonly<Record<Timeframe, number>> = {
 
 function isOptionsRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assertKnownOhlcStreamOptionKeys(options: Record<string, unknown>): void {
+  for (const key of Object.getOwnPropertyNames(options)) {
+    if (!OHLC_STREAM_OPTION_KEYS.has(key)) {
+      throw new TypeError("OhlcStream options must contain only timeframes, bufferSize, and symbols");
+    }
+  }
+  if (Object.getOwnPropertySymbols(options).length > 0) {
+    throw new TypeError("OhlcStream options must contain only timeframes, bufferSize, and symbols");
+  }
 }
 
 function isTimeframe(value: unknown): value is Timeframe {
@@ -111,6 +123,7 @@ function normalizeBufferSize(value: unknown): number {
  */
 export function normalizeOhlcStreamOptions(options: unknown): OhlcStreamConfig {
   if (!isOptionsRecord(options)) throw new TypeError("OhlcStream options must be an object");
+  assertKnownOhlcStreamOptionKeys(options);
   return freezeOhlcStreamConfig(
     normalizeTimeframes(Object.hasOwn(options, "timeframes") ? options["timeframes"] : undefined),
     normalizeBufferSize(Object.hasOwn(options, "bufferSize") ? options["bufferSize"] : undefined),
