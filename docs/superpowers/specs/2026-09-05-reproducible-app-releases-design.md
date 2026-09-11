@@ -14,10 +14,10 @@ The two deployable applications are `apps/bot` (`bot`) and
 artifact and has no exchange, data-provider, credential, configuration, state,
 or network authority.
 
-## Release contract
+## Inner application archive contract (retained)
 
-For application `A` at version `0.1.0`, target `bun-linux-x64`, release output
-is exactly:
+For application `A` at version `0.1.0`, target `bun-linux-x64`, the private
+candidate archive and sidecar are exactly:
 
 ```text
 releases/A/0.1.0/bun-linux-x64/
@@ -43,12 +43,12 @@ bun build <application entry point> --compile --target=bun-linux-x64 --outfile <
 Every assembly attempt creates one new, unpredictable, private candidate
 directory through the filesystem port's secure temporary-directory primitive.
 It owns the complete candidate tree, including the ZIP and sidecar; it never
-writes below `releases/`. A later release orchestrator may publish exactly one
-complete candidate directory. No build or test writes an executable, ZIP,
-extraction, or intermediate file to the repository except that one final,
-ignored `releases/` destination from an actual clean release build.
+writes below `releases/`. The later release-set orchestrator consumes the two
+private ZIP-and-sidecar pairs; no inner assembler publishes a public path. No
+build or test writes an executable, ZIP, extraction, or intermediate file to
+the repository.
 
-### Candidate and publication filesystem contract
+### Candidate filesystem contract
 
 The filesystem port has two security-critical primitives. `createPrivateCandidate`
 creates a fresh, unpredictable directory owned by the caller beneath a trusted
@@ -63,21 +63,10 @@ owned private candidate. It is used only to reject malformed private candidate
 inputs before their bytes are accepted. It is not a final-destination guard and
 must never precede a final-destination write or publication attempt.
 
-`publishCandidateDirectory` atomically moves one complete private candidate
-directory to one exact final release directory and enforces **destination must
-be absent** as part of that one operation. It must neither replace nor merge
-an existing destination. A platform adapter that cannot provide an atomic
-whole-directory no-replace publication fails closed; it must not emulate that
-property with `lstat`/existence-check followed by writes or rename. Production
-code never traverses a final path component and then writes into it. A failure
-before, during, or after candidate construction leaves no final release output;
-the private candidate may be safely discarded by its owner.
-
-The production adapter may enable publication only after it proves that the
-pinned Linux/runtime provides the required atomic absent-only whole-directory
-semantics. If that proof is unavailable, the release command fails closed. It
-must not use `renameat2`, `openat`, `openat2`, a native descriptor workaround,
-or an inspect-then-rename emulation to claim the property.
+The obsolete `publishCandidateDirectory` whole-directory move and two-public-
+directory layout are superseded as public publication semantics. They do not
+alter this private candidate contract, the inner ZIP+sidecar layout, compiler
+preflight, independent verifier, guarded smoke, or private two-build gate.
 
 ### Release manifest
 
@@ -154,6 +143,77 @@ The sidecar has exactly one ASCII line:
 
 It hashes the ZIP bytes, not an extracted tree.
 
+## Immutable public release-set contract
+
+The only public regular file for version `0.1.0` and target `bun-linux-x64` is:
+
+```text
+releases/0.1.0/bun-linux-x64/
+  mm-crypto-bot-release-set-0.1.0-bun-linux-x64.zip
+```
+
+There is no outer sidecar: two filesystem entries cannot be the approved atomic
+unit. The deterministic outer STORE ZIP contains exactly five `0644` regular
+files in UTF-16/code-unit path order:
+
+```text
+apps/bot/mm-crypto-bot-bot-0.1.0-bun-linux-x64.zip
+apps/bot/mm-crypto-bot-bot-0.1.0-bun-linux-x64.zip.sha256
+apps/config-search/mm-crypto-bot-config-search-0.1.0-bun-linux-x64.zip
+apps/config-search/mm-crypto-bot-config-search-0.1.0-bun-linux-x64.zip.sha256
+release-set-manifest.json
+```
+
+`release-set-manifest.json` is canonical two-space JSON plus LF with schema
+`mm-crypto-bot.release-set-manifest/v1`. It records common `commit`,
+`lockfileSha256`, `sourceDateEpoch`, `target`, `toolchain`, and `version`, plus
+exactly two app records. Each app record identifies its exact ZIP path and
+sidecar path and records `{bytes, sha256}` for both. It does not self-hash.
+
+The specialized set codec accepts only prevalidated in-memory regular inputs,
+uses STORE, and rejects malformed, duplicate, traversal, wrong name/order/mode,
+and unsupported ZIP-feature entries. The set verifier independently parses the
+outer ZIP; validates exact layout/names/order/modes, manifest canonical
+bytes/schema, all four manifest byte lengths/digests, and each inner sidecar
+spelling; verifies each existing inner archive via the current independent
+verifier; and requires common identity equality across the set and both inner
+manifests. No legacy public per-app layout remains as an alternative.
+
+The contract/codec is pure: `createReleaseSetManifest(inputs)` plus
+`encodeReleaseSetZip(inputs, sourceDateEpoch)` returns only
+`{ manifest, zipBytes }`. A separate injected private-candidate assembler first
+invokes the inner verifier, then creates the archive under a secure private
+directory and returns `{ archivePath, basename,
+directory: ReleasePrivateDirectory, manifest }`, where `basename` is exactly
+`mm-crypto-bot-release-set-0.1.0-bun-linux-x64.zip`. The independent set
+verifier returns `VerifiedReleaseSetArchive` from `{ zipBytes }` and never uses
+writer logic.
+
+Publication follows only after both apps have been independently assembled
+twice, verified, byte-compared, and smoked. It uses only Node/Bun
+`fsPromises.link(sourceArchivePath, destinationArchivePath)` as one create-only
+operation. Never inspect/read/traverse destination first, overwrite, rename,
+merge, copy-fallback, or create a second public sidecar. Map `EEXIST`, `EXDEV`,
+and other failures to stable redacted typed outcomes; `EXDEV` is a hard failure
+and proves the candidate was not on the publication filesystem.
+
+`ReleaseSetPublicationDependencies` owns a source filesystem restricted to
+`Pick<ReleaseFileSystemPort, "lstat" | "readFile">` plus a separate
+publication port that owns only `link(source, destination)` and its Node/Bun
+adapter. The publisher uses the independent set verifier after source
+`lstat`/read immediately before link; it still never reads, inspects, or
+traverses the destination.
+
+Without descriptor APIs, pathname `link()` cannot prevent hostile replacement
+of an ancestor component. The publication-parent tree must already exist, be
+non-symlinked and process-controlled, and have no hostile concurrent writer;
+this is explicit, not a stronger guarantee. Candidate content must be verified
+regular non-symlink content in a caller-owned unpredictable private root and
+immutable-by-protocol after verification. Before-link failure may remove only
+proven private candidates and never destination. After a successful link,
+publication is visible and never rolled back or destination-cleaned; private
+cleanup is attempted separately and its failure retains published state.
+
 ## Build preconditions and ports
 
 The real CLI checks before creating its temporary build directory:
@@ -180,15 +240,15 @@ The root scripts are:
 }
 ```
 
-`release:build` and `release:reproducibility` each assemble two fresh private
-candidates per application. For each pair, the orchestrator independently
-verifies both candidates, compares the ZIP and sidecar bytes, and smokes both
-before it calls `publishCandidateDirectory` exactly once for the first complete
-candidate. `release:verify` verifies existing artifacts without compiling.
-`release:smoke` verifies and smokes existing artifacts. Any failed preflight,
-assembly, verification, comparison, smoke, or publication leaves no final
-release output; an already-present destination is a publication error, never an
-overwrite.
+The retained private reproducibility gate assembles two fresh candidates per
+application, independently verifies each pair, compares ZIP and sidecar bytes,
+and smokes both. The release-set orchestrator then performs this across both
+applications, independently verifies the set, and calls `fsPromises.link`
+exactly once for the first complete set archive. `release:verify` verifies
+existing artifacts without compiling. `release:smoke` verifies and smokes
+existing artifacts. Any failed preflight, assembly, verification, comparison,
+smoke, or publication leaves no public release-set file; an already-present
+destination is never overwritten.
 
 All modules receive filesystem, Git, toolchain, compiler, and subprocess ports;
 tests use injected fakes. A dirty integration worktree therefore tests all
@@ -240,13 +300,12 @@ or configuration loaders; it cannot initiate a search.
 
 The standalone config-search CLI and both application package build tasks are
 completed and atomically committed before the release assembler is introduced;
-the assembler task depends on that exact prerequisite commit. The root
-`.gitignore` already ignores `/releases/`; `clean:artifacts` adds only the exact
-`releases` directory to its existing safe allowlist and tests prove it neither
-follows a symlink nor removes unknown files. CI adds a Linux release job using
-the existing frozen install and exact Bun/Node setup, runs
-`bun run release:reproducibility`, and uploads only `releases/**/*.zip` and
-`releases/**/*.zip.sha256`.
+the assembler task depends on that exact prerequisite commit. Root scripts,
+`.gitignore`/cleaner integration, CI, upload, and real project `releases/**`
+creation remain future wiring targets that require separate approval. Their
+future publication/upload contract must name only the release-set ZIP, not
+legacy public per-app ZIP/sidecar entries; this docs-only slice does not
+implement them.
 
 This slice does not publish a release, change live-trading behavior, add an
 external dependency, add SBOM/license generation, use Node as a runtime,
@@ -254,6 +313,8 @@ include source/config/data/secrets, use `openat`, `openat2`, `/proc` file
 descriptors, a native descriptor adapter, a shell ZIP utility, or relax any
 coverage/format/lint/type gate. Every new source and test file stays at most
 500 lines and the owned release runtime has separate 100% unit and E2E coverage.
-Tests include adversarial symlink and non-directory final-destination cases,
-partial-candidate write/assembly failures, failed no-replace publication, and
-proof that none leaves a final release directory.
+Tests include malformed/duplicate/traversal/wrong outer-entry cases;
+noncanonical manifest, digest, length, sidecar, mapping, and identity cases;
+link ordering and no-destination-inspection; `EEXIST` sentinels, `EXDEV`, and
+redacted unknown failure; same-filesystem hard-link survival; no-link mismatch
+or smoke failure; and post-link cleanup-failure published state.
