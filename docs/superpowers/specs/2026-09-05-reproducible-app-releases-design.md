@@ -266,7 +266,10 @@ The real CLI checks before creating its temporary build directory:
 5. The selected app package version is exactly `0.1.0` and its known entry point
    is regular and non-symlinked.
 
-The root scripts are:
+The following is a future, separately approved root-wiring example; these root
+scripts and the referenced `build.ts`, `smoke.ts`, and `reproducibility.ts`
+entrypoints are excluded from this 22-path release-set scope and are not current
+repository files:
 
 ```json
 {
@@ -352,11 +355,16 @@ external dependency or change a lockfile, add SBOM/license generation, use Node 
 include source/config/data/secrets, use `openat`, `openat2`, `/proc` file
 descriptors, a native descriptor adapter, a shell ZIP utility, or relax any
 coverage/format/lint/type gate. Every new source and test file stays at most
-500 lines and all ten runtime files in the combined release-set migration have
-separate 100% unit and E2E coverage: the six release-set modules,
+500 lines. The ten Task 7 owned changed/new runtime files have separate 100%
+unit and E2E coverage: the six release-set modules, `release-ports.ts`,
+`release-coverage.ts`, `release-artifact-verifier.ts`, and `verify.ts`. This
+does not narrow the retained source unions: unit remains exactly 17 sources
+(the current ten plus those six modules and `release-ports.ts`), and E2E remains
+exactly 13 sources (the current three plus those six modules,
 `release-ports.ts`, `release-coverage.ts`, `release-artifact-verifier.ts`, and
-`verify.ts`. Both the JSON summary and LCOV parser require strictly positive
-totals for every required source and metric before accepting 100% coverage.
+`verify.ts`). The new coverage test locks both exact lists as a regression
+contract. Both the JSON summary and LCOV parser require strictly positive totals
+for every required source and metric before accepting 100% coverage.
 Tests include malformed/duplicate/traversal/wrong outer-entry cases;
 equivalent input permutations producing identical outer bytes; reversed
 manifest-array rejection; noncanonical manifest, digest, length, sidecar,

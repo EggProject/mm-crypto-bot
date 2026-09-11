@@ -222,9 +222,22 @@ export function assertReproducibleReleaseSet(input: {
       inner verifier remains a private-byte dependency of the set verifier. No root
       script or actual project `releases/**` output is added.
 - [ ] **GREEN coverage and E2E:** modify the existing coverage runner and both
-      Vitest source lists so all ten runtime files have separate unit and E2E
-      S/B/F/L 100% coverage: the six new release-set modules, `release-ports.ts`,
+      Vitest source lists without removing or narrowing a retained source. The ten
+      Task 7 owned changed/new runtime files have separate unit and E2E S/B/F/L
+      100% coverage: the six new release-set modules, `release-ports.ts`,
       `release-coverage.ts`, `release-artifact-verifier.ts`, and `verify.ts`.
+      The unit source list is exactly 17: the current ten
+      (`release-contract.ts`, `zip-store.ts`, `zip-store-encoder.ts`,
+      `release-assembler.ts`, `release-verifier.ts`,
+      `release-artifact-verifier.ts`, `release-smoke.ts`,
+      `release-private-candidate-reproducibility.ts`, `verify.ts`, and
+      `release-coverage.ts`) plus the six new release-set modules and
+      `release-ports.ts`. The E2E source list is exactly 13: the current three
+      (`release-assembler.ts`, `release-smoke.ts`, and
+      `release-private-candidate-reproducibility.ts`) plus those same six new
+      release-set modules, `release-ports.ts`, `release-coverage.ts`,
+      `release-artifact-verifier.ts`, and `verify.ts`. The new coverage test
+      asserts both exact unions as a regression contract.
       Require a strictly positive total for every required JSON-summary and LCOV
       source/metric before accepting 100%; change every total parser check to
       reject `total <= 0` and prove both synthetic JSON and LCOV zero-total
