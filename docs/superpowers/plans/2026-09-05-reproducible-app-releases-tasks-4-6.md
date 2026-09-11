@@ -57,7 +57,10 @@ export async function assertAllPrivateCandidateReproducibility(
 ### Task 6: Deferred root, cleaner, CI, and output wiring
 
 This future target requires separate user approval and is not implemented,
-staged, committed, or validated by this scope. A future CI upload may name only
+staged, committed, or validated by this scope. Existing `release:verify`,
+`coverage:release`, `coverage:release:unit`, and `coverage:release:e2e` root
+scripts remain unchanged. Only `release:build`, `release:smoke`, and
+`release:reproducibility` are future root wiring. A future CI upload may name only
 this exact single artifact:
 
 ```text
@@ -69,20 +72,30 @@ network, and actual project `releases/**` creation remain excluded here.
 
 ### Task 7: Implement and cover the immutable release set atomically
 
-**Exact owned manifest (22 paths):**
+**Exact owned manifest (22 paths, counted):**
 
-- Create: `scripts/release/release-set-contract.ts`,
-  `release-set-contract.test.ts`, `release-set-zip.ts`, `release-set-zip.test.ts`,
-  `release-set-assembler.ts`, `release-set-assembler.test.ts`,
-  `release-set-verifier.ts`, `release-set-verifier.test.ts`,
-  `release-set-publication.ts`, `release-set-publication.test.ts`,
-  `release-set-reproducibility.ts`, `release-set-reproducibility.test.ts`,
-  `release-set-coverage.test.ts`, and `release-set.e2e.test.ts`.
-- Modify: `scripts/release/release-ports.ts`,
-  `scripts/release/release-coverage.ts`, `vitest.config.ts`, and
-  `vitest.e2e.config.ts`, `scripts/release/release-artifact-verifier.ts`,
-  `release-artifact-verifier.test.ts`, `scripts/release/verify.ts`, and
-  `verify.test.ts`.
+- Create: `scripts/release/release-set-contract.ts`
+- Create: `scripts/release/release-set-contract.test.ts`
+- Create: `scripts/release/release-set-zip.ts`
+- Create: `scripts/release/release-set-zip.test.ts`
+- Create: `scripts/release/release-set-assembler.ts`
+- Create: `scripts/release/release-set-assembler.test.ts`
+- Create: `scripts/release/release-set-verifier.ts`
+- Create: `scripts/release/release-set-verifier.test.ts`
+- Create: `scripts/release/release-set-publication.ts`
+- Create: `scripts/release/release-set-publication.test.ts`
+- Create: `scripts/release/release-set-reproducibility.ts`
+- Create: `scripts/release/release-set-reproducibility.test.ts`
+- Create: `scripts/release/release-set-coverage.test.ts`
+- Create: `scripts/release/release-set.e2e.test.ts`
+- Modify: `scripts/release/release-ports.ts`
+- Modify: `scripts/release/release-coverage.ts`
+- Modify: `scripts/release/vitest.config.ts`
+- Modify: `scripts/release/vitest.e2e.config.ts`
+- Modify: `scripts/release/release-artifact-verifier.ts`
+- Modify: `scripts/release/release-artifact-verifier.test.ts`
+- Modify: `scripts/release/verify.ts`
+- Modify: `scripts/release/verify.test.ts`
 
 ```ts
 export type ReleaseSetPayload = Readonly<{ bytes: number; sha256: string }>;
@@ -129,10 +142,7 @@ export type ReleasePublicationOutcome =
   | { readonly kind: "publication-failed" };
 export function deriveReleaseSetDestination(publicationRoot: string): string;
 export function createReleaseSetManifest(inputs: readonly ReleaseSetInput[]): ReleaseSetManifestV1;
-export function encodeReleaseSetZip(
-  inputs: readonly ReleaseSetInput[],
-  sourceDateEpoch: number,
-): ReleaseSetArchive;
+export function encodeReleaseSetZip(inputs: readonly ReleaseSetInput[]): ReleaseSetArchive;
 export function assembleReleaseSetCandidate(
   dependencies: ReleaseDependencies,
   inputs: readonly ReleaseSetInput[],
@@ -176,10 +186,16 @@ export function assertReproducibleReleaseSet(input: {
       `encodeReleaseSetZip` accept either input permutation only when there is
       exactly one `bot` and one `config-search`, canonicalize to that exact array
       order, and must produce byte-identical manifest and ZIP bytes for both
-      input orders. Independently reject malformed, duplicate, traversal, wrong
+      input orders. `encodeReleaseSetZip` derives every outer local and central
+      normalized ZIP timestamp only from that canonical manifest's shared
+      `sourceDateEpoch`; it has no separate timestamp input or clock read.
+      Independently reject malformed, duplicate, traversal, wrong
       name/order/mode, reversed/noncanonical manifest applications,
-      digest/length/sidecar/mapping/identity failures. Tests first prove both
-      permutation equality and reversed-manifest rejection. Export the one literal
+      digest/length/sidecar/mapping/identity failures, and any local or central
+      outer header timestamp not equal to the normalized manifest
+      `sourceDateEpoch`. Tests first prove both permutation equality and
+      timestamp derivation, then mutated-local and mutated-central timestamp
+      rejection as well as reversed-manifest rejection. Export the one literal
       `releaseSetCandidatePrefix = "release-set-candidate-" as const` from
       `release-set-contract.ts`; `assembleReleaseSetCandidate` uses it for
       `mkdtemp`, and all publisher and negative tests import it rather than
@@ -214,6 +230,19 @@ export function assertReproducibleReleaseSet(input: {
       unknown failures are redacted, no outer sidecar exists, mismatch/smoke failure
       yields no link, and after-link cleanup failure reports published state without
       destination cleanup.
+- [ ] **GREEN retained-snapshot orchestration:** for each canonical application,
+      create the first private candidate and independently read/verify it; create
+      and independently read/verify the second; byte-compare ZIP and sidecar
+      values against the first verified ZIP, sidecar, and manifest snapshot retained
+      in memory; then smoke both. That snapshot is ineligible for outer assembly
+      until the comparison and both smokes pass. Only after both applications
+      complete that exact sequence may the orchestrator call
+      `assembleReleaseSetCandidate` once, using those two retained first snapshots.
+      It must never create a third per-app candidate
+      after verify/compare/smoke. Tests use distinct first, second, and available
+      third-build fixtures and prove every outer inner entry byte equals the first
+      independently verified snapshot; private inner cleanup occurs only after the
+      required snapshot is retained and never changes published outer input bytes.
 - [ ] **GREEN legacy public verifier/CLI migration:** modify only
       `release-artifact-verifier.ts` and `verify.ts` with their existing tests so
       the public verification path derives and validates the single outer

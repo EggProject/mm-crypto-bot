@@ -178,12 +178,18 @@ verifier; and requires common identity equality across the set and both inner
 manifests. No legacy public per-app layout remains as an alternative.
 
 The contract/codec is pure: `createReleaseSetManifest(inputs)` and
-`encodeReleaseSetZip(inputs, sourceDateEpoch)` each accept either input
-permutation only when it contains exactly one `bot` and one `config-search`,
-then deterministically reorder it to the canonical order above; equivalent
-permutations therefore produce byte-identical manifests and ZIPs. The verifier
-rejects a reversed or otherwise noncanonical manifest array. The only temporary
-directory prefix is the literal exported
+`encodeReleaseSetZip(inputs)` each accept either input permutation only when it
+contains exactly one `bot` and one `config-search`, then deterministically
+reorder it to the canonical order above; equivalent permutations therefore
+produce byte-identical manifests and ZIPs. The ZIP codec derives its only
+normalized DOS timestamp from the canonical manifest's shared
+`sourceDateEpoch`; it accepts no independent timestamp parameter and never
+consults a clock. The verifier rejects a reversed or otherwise noncanonical
+manifest array and rejects any outer local or central header timestamp that is
+not the normalized manifest `sourceDateEpoch`. Codec tests prove that both
+input permutations retain that one timestamp source; independently mutated
+local and central timestamp mismatches are negative verifier cases. The only
+temporary directory prefix is the literal exported
 `releaseSetCandidatePrefix = "release-set-candidate-" as const`; the assembler,
 publisher-owned validation, and all positive and negative tests import that one
 constant. A separate injected private-candidate assembler first invokes the
@@ -195,7 +201,20 @@ verifier returns `VerifiedReleaseSetArchive` from `{ zipBytes }` and never uses
 writer logic.
 
 Publication follows only after both apps have been independently assembled
-twice, verified, byte-compared, and smoked. It uses only Node/Bun
+twice, verified, byte-compared, and smoked. `assertReproducibleReleaseSet`
+retains the in-memory ZIP, sidecar, and manifest values read from each app's
+first independently verified candidate. For each canonical app it assembles
+the first candidate, independently reads/verifies it, assembles and
+independently reads/verifies the second candidate, byte-compares their ZIP and
+sidecar values, then smokes both candidates; only after both applications pass
+does it assemble exactly one outer candidate from the retained first-candidate
+values. It never creates a third per-app candidate after those gates. The inner
+private directories may be cleaned only after their verified byte snapshots
+have been retained, and outer-candidate/private cleanup remains the separate
+publisher responsibility described below. Orchestration tests prove that every
+outer inner ZIP/sidecar byte is exactly the retained, independently verified
+first-candidate byte, including when a distinct unverified third-build fixture
+is available. It uses only Node/Bun
 `fsPromises.link(sourceArchivePath, destinationArchivePath)` as one create-only
 operation. A pure `deriveReleaseSetDestination(publicationRoot)` is the only
 destination derivation: it appends exactly
@@ -249,7 +268,10 @@ path.
 
 `assertReproducibleReleaseSet` supplies its own
 `releaseDependencies.temporaryRoot` explicitly as `publishReleaseSet`'s trusted
-`privateRoot`; a forged candidate cannot replace that value.
+`privateRoot`; a forged candidate cannot replace that value. It must pass the
+outer assembler only the first-candidate snapshots that survived the complete
+two-build verify/compare/smoke gate; neither a later assembly nor raw,
+unverified candidate bytes may enter the outer ZIP.
 
 ## Build preconditions and ports
 
@@ -266,15 +288,16 @@ The real CLI checks before creating its temporary build directory:
 5. The selected app package version is exactly `0.1.0` and its known entry point
    is regular and non-symlinked.
 
-The following is a future, separately approved root-wiring example; these root
-scripts and the referenced `build.ts`, `smoke.ts`, and `reproducibility.ts`
+The existing root `release:verify`, `coverage:release`,
+`coverage:release:unit`, and `coverage:release:e2e` scripts remain unchanged by
+this scope. The following are the only future, separately approved root-wiring
+examples; their referenced `build.ts`, `smoke.ts`, and `reproducibility.ts`
 entrypoints are excluded from this 22-path release-set scope and are not current
 repository files:
 
 ```json
 {
   "release:build": "bun scripts/release/build.ts",
-  "release:verify": "bun scripts/release/verify.ts",
   "release:smoke": "bun scripts/release/smoke.ts",
   "release:reproducibility": "bun scripts/release/reproducibility.ts"
 }
