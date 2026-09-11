@@ -24,6 +24,7 @@ Tasks 5–11 continue in [`2026-09-05-reproducible-app-releases-tasks-4-6.md`](2
 - Smoke extraction is private, safe, outbound-network guarded with required Linux `unshare --user --map-root-user --net`, and runs only bot `--help` plus config-search `--help`/`--status`.
 - Assembly never writes `releases/`. The retained inner gate verifies, byte-compares, and smokes two complete private candidates per app. The old public whole-directory `publishCandidateDirectory` model is superseded; the release-set gate publishes only one outer regular file after both apps pass all gates.
 - The filesystem port creates private candidates with an unpredictable secure primitive. The release-set publication port uses only create-only `fsPromises.link` and never destination inspection, overwrite, rename, merge, or copy fallback; predictable names and `lstat`/existence-check then write emulation are forbidden.
+- A release-set candidate carries only its direct-child temporary directory, fixed basename, and archive path. `publishReleaseSet` receives the trusted private root separately from its caller, so a forged candidate cannot choose that anchor. Before any port call, publisher-owned pure validation requires that caller-supplied root relationship, the exact private-directory prefix with a nonempty suffix, and the exact archive join. The current restricted candidate filesystem port alone may later call `removePrivateDirectory(candidate.directory)`; it never operates on the public root or destination. The reproducibility orchestration explicitly supplies `releaseDependencies.temporaryRoot` as that trusted root.
 - Cleaner, root scripts, CI, upload, and actual `releases/**` output remain explicit future wiring targets requiring separate approval. This plan slice adds no root/CI/cleaner wiring.
 - No `openat`, `openat2`, `/proc` file descriptors, native descriptor adapters, unsafe assertions, `any`, suppressions, weakened gates, shell interpolation, or files over 500 lines.
 - Every owned release runtime source has 100% statements, branches, functions, and lines in separate unit and E2E coverage reports.
@@ -33,26 +34,26 @@ Tasks 5–11 continue in [`2026-09-05-reproducible-app-releases-tasks-4-6.md`](2
 
 ## File Map
 
-| Path                                                                              | Responsibility                                                                             |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `scripts/release/release-contract.ts`                                             | App/target constants, manifest and result types, canonical JSON/sidecar helpers.           |
-| `scripts/release/release-ports.ts`                                                | Injected private/publication filesystem, Git, toolchain, compiler, and process ports.      |
-| `scripts/release/zip-store.ts`                                                    | Strict payload validation and deterministic ZIP STORE encode/decode primitives.            |
-| `scripts/release/release-assembler.ts`                                            | Clean preflight, private compilation, manifest/README assembly, and candidate output only. |
-| `scripts/release/release-verifier.ts`                                             | Independent ZIP/sidecar/manifest/payload validation.                                       |
-| `scripts/release/release-smoke.ts`                                                | Safe extraction and Linux network-namespace subprocess smoke.                              |
-| `scripts/release/release-reproducibility.ts`                                      | Private two-candidate verification, byte comparison, and smoke per application.            |
-| `scripts/release/release-set-contract.ts`, `release-set-zip.ts`                   | Outer release-set types, canonical manifest, and specialized STORE policy.                 |
-| `scripts/release/release-set-assembler.ts`, `release-set-verifier.ts`             | Raw verified-inner set assembly and independent outer validation.                          |
-| `scripts/release/release-set-publication.ts`, `release-set-reproducibility.ts`    | Verified source candidate and final create-only hard link after cross-app gates.           |
-| `scripts/release/build.ts`, `verify.ts`, `smoke.ts`, `reproducibility.ts`         | Thin fixed-argument command entrypoints.                                                   |
-| `scripts/release/release-coverage.ts`, `.test.ts`                                 | Separate unit/E2E coverage execution and fail-closed LCOV 100% gate.                       |
-| `scripts/release/*.test.ts`                                                       | Unit contracts for every release module, with injected ports and byte fixtures.            |
-| `scripts/release/release-e2e.test.ts`                                             | Private fixture-repository compilation, verification, smoke, and two-build contract.       |
-| `apps/config-search/src/index.ts`, `.test.ts`                                     | Typed unavailable CLI and public process behavior.                                         |
-| `apps/config-search/package.json`, `apps/bot/package.json`, `package.json`        | Matching compiled app build tasks and root release scripts.                                |
-| `scripts/tooling/clean-artifacts.ts`, `.test.ts`                                  | Exact `releases` cleanup allowlist and symlink/idempotency test.                           |
-| `.github/workflows/ci.yml`, `scripts/tooling/ci-format-workflow-contract.test.ts` | Frozen-install release-reproducibility CI job and artifact-upload contract.                |
+| Path                                                                              | Responsibility                                                                                                              |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/release/release-contract.ts`                                             | App/target constants, manifest and result types, canonical JSON/sidecar helpers.                                            |
+| `scripts/release/release-ports.ts`                                                | Injected private/publication filesystem, Git, toolchain, compiler, and process ports.                                       |
+| `scripts/release/zip-store.ts`                                                    | Strict payload validation and deterministic ZIP STORE encode/decode primitives.                                             |
+| `scripts/release/release-assembler.ts`                                            | Clean preflight, private compilation, manifest/README assembly, and candidate output only.                                  |
+| `scripts/release/release-verifier.ts`                                             | Independent ZIP/sidecar/manifest/payload validation.                                                                        |
+| `scripts/release/release-smoke.ts`                                                | Safe extraction and Linux network-namespace subprocess smoke.                                                               |
+| `scripts/release/release-reproducibility.ts`                                      | Private two-candidate verification, byte comparison, and smoke per application.                                             |
+| `scripts/release/release-set-contract.ts`, `release-set-zip.ts`                   | Outer release-set types, canonical manifest, and specialized STORE policy.                                                  |
+| `scripts/release/release-set-assembler.ts`, `release-set-verifier.ts`             | Raw verified-inner set assembly and independent outer validation.                                                           |
+| `scripts/release/release-set-publication.ts`, `release-set-reproducibility.ts`    | Trusted-private-root candidate validation, separate private cleanup, and final create-only hard link after cross-app gates. |
+| `scripts/release/build.ts`, `verify.ts`, `smoke.ts`, `reproducibility.ts`         | Thin fixed-argument command entrypoints.                                                                                    |
+| `scripts/release/release-coverage.ts`, `.test.ts`                                 | Separate unit/E2E coverage execution and fail-closed positive-total JSON/LCOV 100% gate.                                    |
+| `scripts/release/*.test.ts`                                                       | Unit contracts for every release module, with injected ports and byte fixtures.                                             |
+| `scripts/release/release-e2e.test.ts`                                             | Private fixture-repository compilation, verification, smoke, and two-build contract.                                        |
+| `apps/config-search/src/index.ts`, `.test.ts`                                     | Typed unavailable CLI and public process behavior.                                                                          |
+| `apps/config-search/package.json`, `apps/bot/package.json`, `package.json`        | Matching compiled app build tasks and root release scripts.                                                                 |
+| `scripts/tooling/clean-artifacts.ts`, `.test.ts`                                  | Exact `releases` cleanup allowlist and symlink/idempotency test.                                                            |
+| `.github/workflows/ci.yml`, `scripts/tooling/ci-format-workflow-contract.test.ts` | Frozen-install release-reproducibility CI job and artifact-upload contract.                                                 |
 
 ## Interfaces
 
@@ -389,6 +390,11 @@ runtime input is read into the archive.
 - Consumes: Task 1 `parseStoreZip`, manifest types, sidecar parser, and Task 3
   private candidate artifact paths.
 - Produces: `verifyReleaseArchive`, `verifyAllReleaseArchives`, and the `verify.ts` command entrypoint.
+
+Task 7 atomically migrates the public per-app artifact verifier and `verify.ts`
+entrypoint, including their existing tests, to the sole release-set ZIP. This
+Task 4 contract remains the private inner verification prerequisite; it must
+not be treated as a terminal public per-app layout.
 
 - [ ] **Step 1: Write RED verifier tests from independently mutated bytes.**
 

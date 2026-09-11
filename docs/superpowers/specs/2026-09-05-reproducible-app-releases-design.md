@@ -201,12 +201,28 @@ sidecar. Map `EEXIST`, `EXDEV`, and other failures to stable redacted typed
 outcomes; `EXDEV` is a hard failure and proves the candidate was not on the
 publication filesystem.
 
-`ReleaseSetPublicationDependencies` owns a source filesystem restricted to
-`Pick<ReleaseFileSystemPort, "lstat" | "readFile">` plus a separate
-publication port that owns only `link(source, destination)` and its Node/Bun
-adapter. The publisher uses the independent set verifier after source
-`lstat`/read immediately before link; it still never reads, inspects, or
-traverses the destination.
+`ReleaseSetPrivateCandidate` contains only the returned
+`ReleasePrivateDirectory`, fixed archive basename, archive path, and manifest;
+it cannot choose its own trust anchor. `publishReleaseSet` receives a separate,
+caller-supplied trusted `privateRoot` input. Before _any_ filesystem or
+publication-port call, publisher-owned pure validation requires that valid
+private root; a candidate directory that is its direct child; the exact
+release-set temporary-directory prefix followed by a nonempty suffix; the fixed
+basename; and an archive path exactly equal to that direct child's basename
+join. The publisher then uses its current restricted private-candidate
+filesystem capability for `lstat`/read and the independent set verifier
+validates the bytes. A malformed root/path relationship or a
+non-regular/symlink source is a no-link failure.
+
+`ReleaseSetPublicationDependencies` has exactly two capabilities:
+`privateCandidateFileSystem: Pick<ReleaseFileSystemPort, "lstat" | "readFile" |
+"removePrivateDirectory">` and a separate publication port that owns only
+`link(source, destination)` and its Node/Bun adapter. The publisher uses the
+independent set verifier immediately before link; it still never reads,
+inspects, or traverses the destination. Private cleanup is exactly
+`removePrivateDirectory(candidate.directory)` on that current restricted port;
+it is distinct from the project cleaner and has no public-root or destination
+operation.
 
 Without descriptor APIs, pathname `link()` cannot prevent hostile replacement
 of an ancestor component. The publication-parent tree must already exist, be
@@ -215,8 +231,16 @@ this is explicit, not a stronger guarantee. Candidate content must be verified
 regular non-symlink content in a caller-owned unpredictable private root and
 immutable-by-protocol after verification. Before-link failure may remove only
 proven private candidates and never destination. After a successful link,
-publication is visible and never rolled back or destination-cleaned; private
-cleanup is attempted separately and its failure retains published state.
+publication is visible and never rolled back or destination-cleaned; the exact
+private-directory cleanup is attempted separately and its failure retains
+published state. Invalid pure candidate-path input makes no `lstat`, `readFile`,
+`removePrivateDirectory`, or `link` call. A failed post-validation pre-link
+operation may remove only `candidate.directory`, never a destination or another
+path.
+
+`assertReproducibleReleaseSet` supplies its own
+`releaseDependencies.temporaryRoot` explicitly as `publishReleaseSet`'s trusted
+`privateRoot`; a forged candidate cannot replace that value.
 
 ## Build preconditions and ports
 
@@ -248,11 +272,14 @@ The retained private reproducibility gate assembles two fresh candidates per
 application, independently verifies each pair, compares ZIP and sidecar bytes,
 and smokes both. The release-set orchestrator then performs this across both
 applications, independently verifies the set, and calls `fsPromises.link`
-exactly once for the first complete set archive. `release:verify` verifies
-existing artifacts without compiling. `release:smoke` verifies and smokes
-existing artifacts. Any failed preflight, assembly, verification, comparison,
-smoke, or publication leaves no public release-set file; an already-present
-destination is never overwritten.
+exactly once for the first complete set archive. In the same atomic migration,
+the legacy public per-app artifact verifier and its `verify.ts` CLI are
+release-set-only: they derive the fixed outer archive from an injected trusted
+publication root and validate that one ZIP, never probe, enumerate, or accept a
+legacy public per-app ZIP/sidecar layout. `release:smoke` remains private-only
+until separately approved root wiring. Any failed preflight, assembly,
+verification, comparison, smoke, or publication leaves no public release-set
+file; an already-present destination is never overwritten.
 
 All modules receive filesystem, Git, toolchain, compiler, and subprocess ports;
 tests use injected fakes. A dirty integration worktree therefore tests all
@@ -316,9 +343,15 @@ external dependency or change a lockfile, add SBOM/license generation, use Node 
 include source/config/data/secrets, use `openat`, `openat2`, `/proc` file
 descriptors, a native descriptor adapter, a shell ZIP utility, or relax any
 coverage/format/lint/type gate. Every new source and test file stays at most
-500 lines and the owned release runtime has separate 100% unit and E2E coverage.
+500 lines and all ten runtime files in the combined release-set migration have
+separate 100% unit and E2E coverage: the six release-set modules,
+`release-ports.ts`, `release-coverage.ts`, `release-artifact-verifier.ts`, and
+`verify.ts`. Both the JSON summary and LCOV parser require strictly positive
+totals for every required source and metric before accepting 100% coverage.
 Tests include malformed/duplicate/traversal/wrong outer-entry cases;
 noncanonical manifest, digest, length, sidecar, mapping, and identity cases;
-link ordering and no-destination-inspection; `EEXIST` sentinels, `EXDEV`, and
-redacted unknown failure; same-filesystem hard-link survival; no-link mismatch
-or smoke failure; and post-link cleanup-failure published state.
+link ordering and no-destination-inspection; public-input call ledgers proving
+invalid candidate paths make no filesystem/cleanup/link call; `EEXIST`
+sentinels, `EXDEV`, and redacted unknown failure; same-filesystem hard-link
+survival; no-link mismatch or smoke failure; and post-link cleanup-failure
+published state.
