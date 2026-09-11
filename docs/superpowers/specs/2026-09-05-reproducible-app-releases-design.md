@@ -17,12 +17,11 @@ or network authority.
 ## Inner application archive contract (retained)
 
 For application `A` at version `0.1.0`, target `bun-linux-x64`, the private
-candidate archive and sidecar are exactly:
+candidate contains an inner archive and sidecar whose entry basenames are:
 
 ```text
-releases/A/0.1.0/bun-linux-x64/
-  mm-crypto-bot-A-0.1.0-bun-linux-x64.zip
-  mm-crypto-bot-A-0.1.0-bun-linux-x64.zip.sha256
+mm-crypto-bot-A-0.1.0-bun-linux-x64.zip
+mm-crypto-bot-A-0.1.0-bun-linux-x64.zip.sha256
 ```
 
 The ZIP contains exactly three regular files at its root:
@@ -50,18 +49,16 @@ the repository.
 
 ### Candidate filesystem contract
 
-The filesystem port has two security-critical primitives. `createPrivateCandidate`
-creates a fresh, unpredictable directory owned by the caller beneath a trusted
-private temporary root. Its implementation must have the equivalent security
-property of `mkdtemp`; predictable names and caller-created temporary
-directories are forbidden. The returned directory is the only location to
-which assembly and smoke extraction may write.
+The filesystem port's `mkdtemp({ parentDirectory, prefix })` creates a fresh,
+unpredictable `ReleasePrivateDirectory { path }` beneath a trusted private
+temporary root. Predictable names and caller-created temporary directories are
+forbidden. The returned directory is the only location to which assembly and
+smoke extraction may write.
 
-`inspectPath` returns exactly one typed state — missing, regular file,
-directory, or symlink — for a compiler output or other path already inside an
-owned private candidate. It is used only to reject malformed private candidate
-inputs before their bytes are accepted. It is not a final-destination guard and
-must never precede a final-destination write or publication attempt.
+`inspectPath` returns `ReleasePathKind`; `lstat` returns a stat-like regular-
+file/symlink predicate for a compiler output or private candidate file. They
+reject malformed private inputs before bytes are accepted. They are not a
+final-destination guard and must never precede destination publication.
 
 The obsolete `publishCandidateDirectory` whole-directory move and two-public-
 directory layout are superseded as public publication semantics. They do not
@@ -192,10 +189,17 @@ writer logic.
 Publication follows only after both apps have been independently assembled
 twice, verified, byte-compared, and smoked. It uses only Node/Bun
 `fsPromises.link(sourceArchivePath, destinationArchivePath)` as one create-only
-operation. Never inspect/read/traverse destination first, overwrite, rename,
-merge, copy-fallback, or create a second public sidecar. Map `EEXIST`, `EXDEV`,
-and other failures to stable redacted typed outcomes; `EXDEV` is a hard failure
-and proves the candidate was not on the publication filesystem.
+operation. A pure `deriveReleaseSetDestination(publicationRoot)` is the only
+destination derivation: it appends exactly
+`0.1.0/bun-linux-x64/mm-crypto-bot-release-set-0.1.0-bun-linux-x64.zip` to the
+caller-supplied trusted process-controlled `publicationRoot`. Publisher and
+reproducibility APIs accept that root, never an arbitrary destination pathname.
+The required derived-parent tree already exists, is non-symlinked and
+process-controlled; publication does no destination precheck or inspection.
+Never overwrite, rename, merge, copy-fallback, or create a second public
+sidecar. Map `EEXIST`, `EXDEV`, and other failures to stable redacted typed
+outcomes; `EXDEV` is a hard failure and proves the candidate was not on the
+publication filesystem.
 
 `ReleaseSetPublicationDependencies` owns a source filesystem restricted to
 `Pick<ReleaseFileSystemPort, "lstat" | "readFile">` plus a separate
@@ -308,7 +312,7 @@ legacy public per-app ZIP/sidecar entries; this docs-only slice does not
 implement them.
 
 This slice does not publish a release, change live-trading behavior, add an
-external dependency, add SBOM/license generation, use Node as a runtime,
+external dependency or change a lockfile, add SBOM/license generation, use Node as a runtime,
 include source/config/data/secrets, use `openat`, `openat2`, `/proc` file
 descriptors, a native descriptor adapter, a shell ZIP utility, or relax any
 coverage/format/lint/type gate. Every new source and test file stays at most

@@ -17,7 +17,7 @@ Tasks 5–11 continue in [`2026-09-05-reproducible-app-releases-tasks-4-6.md`](2
 - Build and runtime basis is Bun `1.3.14`; Node `24.19.0` is verified metadata only and never a release runtime requirement.
 - Release targets are only `bot` and `config-search`, version `0.1.0`, target `bun-linux-x64`, and the exact release paths named in the Spec.
 - Build uses a standalone `bun build --compile --target=bun-linux-x64` executable in a fresh, unpredictable private candidate directory; no source, `node_modules`, package manager, config, data, state, logs, credentials, or secrets enter the ZIP.
-- ZIP is an in-process deterministic STORE writer: sorted POSIX paths, fixed compatible Git timestamp, no compression/extra fields/comments, fixed modes, exact bytes; shell `zip` and new dependencies are forbidden.
+- ZIP is an in-process deterministic STORE writer: sorted POSIX paths, fixed compatible Git timestamp, no compression/extra fields/comments, fixed modes, exact bytes; shell `zip`, dependency, and lockfile changes are forbidden.
 - Real release creation requires a clean exact Git commit and exact Bun/Node/toolchain metadata; any discrepancy fails closed. Tests use injected ports and may run in this dirty worktree.
 - Config-search only implements `--help`, unavailable default, and unavailable `--status`; it never searches or imports a search/exchange/data/config execution path.
 - Verification independently parses central and local ZIP headers and validates paths, modes, hashes, manifest, forbidden contents, and sidecar.
@@ -87,14 +87,23 @@ export interface ReleaseCompilerPort {
     readonly target: ReleaseTarget;
   }): Promise<void>;
 }
-export type ReleasePrivatePathState = "missing" | "regular-file" | "directory" | "symlink";
+export type ReleasePathKind = "directory" | "missing" | "other" | "regular-file" | "symbolic-link";
 export interface ReleaseFileSystemPort {
-  createPrivateCandidate(prefix: string): Promise<ReleasePrivateDirectory>;
   chmod(path: string, mode: 0o644 | 0o755): Promise<void>;
-  inspectPath(path: string): Promise<ReleasePrivatePathState>;
-  lstat(path: string): Promise<ReleasePrivatePathState>;
+  inspectPath(path: string): Promise<ReleasePathKind>;
+  lstat(
+    path: string,
+  ): Promise<{ readonly isRegularFile: () => boolean; readonly isSymbolicLink: () => boolean }>;
+  mkdir(path: string, mode: 0o755): Promise<void>;
+  mkdtemp(input: ReleaseMkdtempInput): Promise<ReleasePrivateDirectory>;
   readFile(path: string): Promise<Uint8Array>;
+  removePrivateDirectory(directory: ReleasePrivateDirectory): Promise<void>;
+  removeFile(path: string): Promise<void>;
   writeFile(path: string, bytes: Uint8Array, mode: 0o644 | 0o755): Promise<void>;
+}
+export interface ReleaseMkdtempInput {
+  readonly parentDirectory: string;
+  readonly prefix: string;
 }
 export interface ReleaseDependencies {
   readonly compiler: ReleaseCompilerPort;
@@ -115,16 +124,13 @@ export interface ReleasePayloadInput {
   readonly mode: 0o644 | 0o755;
   readonly path: string;
 }
-export interface ReleaseArtifactPaths {
+export interface ReleasePrivateCandidate {
+  readonly directory: string;
   readonly sidecarPath: string;
   readonly zipPath: string;
 }
-export interface ReleaseCandidate {
-  readonly artifact: ReleaseArtifactPaths;
-  readonly directory: ReleasePrivateDirectory;
-}
 export interface ReleaseAssemblyResult {
-  readonly candidate: ReleaseCandidate;
+  readonly candidate: ReleasePrivateCandidate;
   readonly manifest: ReleaseManifestV1;
 }
 export interface ReleaseVerificationInput {
@@ -141,81 +147,12 @@ export interface ConfigSearchOutput {
   readonly writeStderr: (text: string) => void;
   readonly writeStdout: (text: string) => void;
 }
-export type ReleasePrivateDirectory = Readonly<{ path: string }>;
-export type ReleaseSetPayload = Readonly<{ bytes: number; sha256: string }>;
-export type ReleaseSetArtifactDescriptor = Readonly<ReleaseSetPayload & { path: string }>;
-export type ReleaseSetApplicationRecord = Readonly<{
-  app: ReleaseApplication;
-  sidecar: ReleaseSetArtifactDescriptor;
-  zip: ReleaseSetArtifactDescriptor;
-}>;
-export type ReleaseSetManifestV1 = Readonly<{
-  applications: readonly [ReleaseSetApplicationRecord, ReleaseSetApplicationRecord];
-  commit: string;
-  lockfileSha256: string;
-  schema: "mm-crypto-bot.release-set-manifest/v1";
-  sourceDateEpoch: number;
-  target: ReleaseManifestV1["target"];
-  toolchain: ReleaseManifestV1["toolchain"];
-  version: "0.1.0";
-}>;
-export type ReleaseSetInput = Readonly<{
-  application: ReleaseApplication;
-  innerManifest: ReleaseManifestV1;
-  sidecarBytes: Uint8Array;
-  zipBytes: Uint8Array;
-}>;
-export type ReleaseSetArchive = Readonly<{ manifest: ReleaseSetManifestV1; zipBytes: Uint8Array }>;
-export type ReleaseSetPrivateCandidate = Readonly<{
-  archivePath: string;
-  basename: "mm-crypto-bot-release-set-0.1.0-bun-linux-x64.zip";
-  directory: ReleasePrivateDirectory;
-  manifest: ReleaseSetManifestV1;
-}>;
-export type VerifiedReleaseSetArchive = Readonly<ReleaseSetArchive & { verified: true }>;
-export type ReleasePublicationFileSystemPort = Readonly<{
-  link(source: string, destination: string): Promise<void>;
-}>;
-export type ReleaseSetPublicationDependencies = Readonly<{
-  sourceFileSystem: Pick<ReleaseFileSystemPort, "lstat" | "readFile">;
-  publicationFileSystem: ReleasePublicationFileSystemPort;
-}>;
-export declare const nodeReleasePublicationFileSystemPort: ReleasePublicationFileSystemPort;
-
-export type ReleasePublicationOutcome =
-  | { readonly kind: "published" }
-  | { readonly kind: "published-cleanup-failed" }
-  | { readonly kind: "destination-exists" }
-  | { readonly kind: "cross-device" }
-  | { readonly kind: "publication-failed" };
-
+export interface ReleasePrivateDirectory {
+  readonly path: string;
+}
 export function encodeStoreZip(entries: readonly ReleasePayloadInput[], sourceDateEpoch: number): Uint8Array;
 export function verifyReleaseArchive(input: ReleaseVerificationInput): Promise<ReleaseManifestV1>;
 export function runConfigSearchCli(argv: readonly string[], output: ConfigSearchOutput): number;
-export function createReleaseSetManifest(inputs: readonly ReleaseSetInput[]): ReleaseSetManifestV1;
-export function encodeReleaseSetZip(
-  inputs: readonly ReleaseSetInput[],
-  sourceDateEpoch: number,
-): ReleaseSetArchive;
-export function assembleReleaseSetCandidate(
-  dependencies: ReleaseDependencies,
-  inputs: readonly ReleaseSetInput[],
-): Promise<ReleaseSetPrivateCandidate>;
-export function verifyReleaseSetArchive(input: {
-  readonly zipBytes: Uint8Array;
-}): Promise<VerifiedReleaseSetArchive>;
-export function publishReleaseSet(
-  input: {
-    readonly candidate: ReleaseSetPrivateCandidate;
-    readonly destinationArchivePath: string;
-  },
-  dependencies: ReleaseSetPublicationDependencies,
-): Promise<ReleasePublicationOutcome>;
-export function assertReproducibleReleaseSet(input: {
-  readonly releaseDependencies: ReleaseDependencies;
-  readonly publicationDependencies: ReleaseSetPublicationDependencies;
-  readonly destinationArchivePath: string;
-}): Promise<ReleasePublicationOutcome>;
 ```
 
 ### Task 1: Define release contracts, ports, and deterministic binary primitives
@@ -249,7 +186,7 @@ expect(parseStoreZip(oddEpochZip).localAndCentralDosTimestamps).toEqual({
   local: normalizedDosTimestamp(1_788_199_915),
   central: normalizedDosTimestamp(1_788_199_915),
 });
-expect(await fileSystem.inspectPath(privateCompilerOutput)).toBe("symlink");
+expect(await fileSystem.inspectPath(privateCompilerOutput)).toBe("symbolic-link");
 ```
 
 - [ ] **Step 2: Run the RED tests.**
@@ -276,12 +213,13 @@ integers, strings, arrays, and plain records; sort record keys by code unit and
 throw for every other value. Write ZIP integers with explicit little-endian
 byte functions, calculate CRC-32 locally, and reject every entry that is not
 one of `README.md`, `manifest.json`, or `bin/mm-crypto-bot-{app}` before ZIP
-encoding. Define the filesystem port so `createPrivateCandidate` is secure and
-unpredictable. `inspectPath` returns only `missing`, `regular-file`,
-`directory`, or `symlink` and is permitted only for paths inside an owned
-private candidate. It has no public-destination use. `parseStoreZip` returns
-immutable parsed records and checks only ZIP structure; it does not call the
-writer. The superseded whole-directory publication method is not exported.
+encoding. Define `mkdtemp({ parentDirectory, prefix })` as secure and
+unpredictable. `inspectPath` returns `ReleasePathKind` and is private-only;
+`lstat` supplies regular-file/symlink predicates for private files. The port
+also exposes `mkdir`, private removal, and file removal/write operations.
+`parseStoreZip` returns immutable parsed records and checks only ZIP structure;
+it does not call the writer. The superseded whole-directory publication method
+is not exported.
 
 - [ ] **Step 4: Run the unit checkpoint.**
 
@@ -290,7 +228,7 @@ Run: `bun test scripts/release/release-contract.test.ts scripts/release/zip-stor
 Expected: PASS; fixed ZIP fixture bytes, CRC, modes, sorted ordering, duplicate,
 traversal, backslash, compression, extra-field, data-descriptor, comment, and
 ZIP64 rejections are asserted. Private-path inspection tests distinguish
-missing, regular-file, directory, and symlink compiler output without invoking
+missing, regular-file, directory, symbolic-link, and other compiler output without invoking
 publication; release-set publication tests later prove no final-path inspection
 occurs.
 
@@ -418,17 +356,17 @@ export async function assembleRelease(
 
 Require `porcelainStatus() === ""`, a full lowercase commit, exact versions,
 and an integer Git commit epoch whose normalized even value is ZIP-compatible
-before `createPrivateCandidate("release-candidate-")`. Compile with the exact argv
+before `mkdtemp({ parentDirectory: temporaryRoot, prefix: "release-candidate-" })`. Compile with the exact argv
 shape `bun build <entry> --compile --target=bun-linux-x64 --outfile <private>`.
 Use `inspectPath` only on the compiler output inside the private candidate:
-accept exactly `regular-file` and reject missing, directory, and symlink. Then
+accept exactly `regular-file` and reject missing, directory, symbolic-link, and
+other kinds. Then
 construct the exact README, manifest, ZIP, and sidecar only in that private
 candidate directory. The assembler has no final `releases/` destination input
-and must never call `publishCandidateDirectory`, inspect a final destination,
-or resolve a final release directory. It may write only within the private
-candidate. Test candidate creation failure, malformed or partial candidate
-output, and every non-regular inspected compiler-output state; each failure
-must leave no final release directory.
+and has no final destination input. It may write only within the private
+candidate. Test `mkdtemp` failure, malformed or partial candidate output, and
+every non-regular inspected compiler-output state; each failure must leave no
+public release-set output.
 
 - [ ] **Step 4: Run the assembly checkpoint.**
 
