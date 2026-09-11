@@ -30,7 +30,20 @@ const disk = Object.freeze({
   writeFile,
 });
 
-function createReleaseSetAssemblyDependencies(directory: string): ReleaseDependencies {
+interface CandidateAssemblyOperationLedger {
+  readonly mkdtempCalls: string[];
+  readonly privateDirectoryRemovals: string[];
+  readonly writes: string[];
+}
+
+function createCandidateAssemblyOperationLedger(): CandidateAssemblyOperationLedger {
+  return { mkdtempCalls: [], privateDirectoryRemovals: [], writes: [] };
+}
+
+function createReleaseSetAssemblyDependencies(
+  directory: string,
+  ledger = createCandidateAssemblyOperationLedger(),
+): ReleaseDependencies {
   return {
     compiler: { compile: (): Promise<void> => Promise.resolve() },
     fileSystem: {
@@ -39,11 +52,20 @@ function createReleaseSetAssemblyDependencies(directory: string): ReleaseDepende
       lstat: (): Promise<{ readonly isRegularFile: () => boolean; readonly isSymbolicLink: () => boolean }> =>
         Promise.resolve({ isRegularFile: (): boolean => true, isSymbolicLink: (): boolean => false }),
       mkdir: (): Promise<void> => Promise.resolve(),
-      mkdtemp: (): Promise<ReleasePrivateDirectory> => Promise.resolve({ path: directory }),
+      mkdtemp: (request): Promise<ReleasePrivateDirectory> => {
+        ledger.mkdtempCalls.push(`${request.parentDirectory}:${request.prefix}`);
+        return Promise.resolve({ path: directory });
+      },
       readFile: (): Promise<Uint8Array> => Promise.resolve(new Uint8Array()),
       removeFile: (): Promise<void> => Promise.resolve(),
-      removePrivateDirectory: (): Promise<void> => Promise.resolve(),
-      writeFile: (): Promise<void> => Promise.resolve(),
+      removePrivateDirectory: (candidate): Promise<void> => {
+        ledger.privateDirectoryRemovals.push(candidate.path);
+        return Promise.resolve();
+      },
+      writeFile: (target, bytes): Promise<void> => {
+        ledger.writes.push(`${target}:${String(bytes.length)}`);
+        return Promise.resolve();
+      },
     },
     git: {
       headCommit: (): Promise<string> => Promise.resolve("a".repeat(40)),
@@ -222,4 +244,83 @@ test("rejects every malformed private outer-candidate directory before writing",
       ]),
     ).rejects.toThrow("release-set candidate directory escapes private root");
   }
+});
+
+test("rejects a divergent supplied manifest before candidate creation or publication-capable output", async () => {
+  const ledger = createCandidateAssemblyOperationLedger();
+  const bot = input("bot");
+  const divergentBot = {
+    ...bot,
+    innerManifest: { ...bot.innerManifest, lockfileSha256: "c".repeat(64) },
+  };
+  await expect(
+    assembleReleaseSetCandidate(
+      createReleaseSetAssemblyDependencies("/private/release-set-candidate-valid", ledger),
+      [divergentBot, input("config-search")],
+    ),
+  ).rejects.toThrow("release-set authenticated manifest mismatch");
+  expect(ledger.mkdtempCalls).toEqual([]);
+  expect(ledger.writes).toEqual([]);
+  expect(ledger.privateDirectoryRemovals).toEqual([]);
+});
+
+test("rejects an accessor-backed release-set input before candidate creation or publication-capable output", async () => {
+  const ledger = createCandidateAssemblyOperationLedger();
+  const bot = input("bot");
+  let wasAccessorRead = false;
+  const accessorBackedBot = {
+    application: bot.application,
+    innerManifest: bot.innerManifest,
+    sidecarBytes: bot.sidecarBytes,
+    get zipBytes(): Uint8Array {
+      wasAccessorRead = true;
+      return bot.zipBytes;
+    },
+  };
+  await expect(
+    assembleReleaseSetCandidate(
+      createReleaseSetAssemblyDependencies("/private/release-set-candidate-valid", ledger),
+      [accessorBackedBot, input("config-search")],
+    ),
+  ).rejects.toThrow(TypeError);
+  expect(wasAccessorRead).toBe(false);
+  expect(ledger.mkdtempCalls).toEqual([]);
+  expect(ledger.writes).toEqual([]);
+  expect(ledger.privateDirectoryRemovals).toEqual([]);
+});
+
+test("rejects malformed own-data input records before candidate creation or publication-capable output", async () => {
+  const bot = input("bot");
+  const { zipBytes, ...missingZipBytes } = bot;
+  for (const malformed of [
+    undefined,
+    { ...bot, application: "invalid" },
+    missingZipBytes,
+    { ...missingZipBytes, unrelated: zipBytes },
+  ]) {
+    const ledger = createCandidateAssemblyOperationLedger();
+    await expect(
+      Reflect.apply(assembleReleaseSetCandidate, undefined, [
+        createReleaseSetAssemblyDependencies("/private/release-set-candidate-valid", ledger),
+        [malformed, input("config-search")],
+      ]),
+    ).rejects.toThrow(TypeError);
+    expect(ledger.mkdtempCalls).toEqual([]);
+    expect(ledger.writes).toEqual([]);
+    expect(ledger.privateDirectoryRemovals).toEqual([]);
+  }
+});
+
+test("rejects source byte mutation after verification begins before candidate creation or publication-capable output", async () => {
+  const ledger = createCandidateAssemblyOperationLedger();
+  const bot = input("bot");
+  const pending = assembleReleaseSetCandidate(
+    createReleaseSetAssemblyDependencies("/private/release-set-candidate-valid", ledger),
+    [bot, input("config-search")],
+  );
+  bot.zipBytes.fill(0);
+  await expect(pending).rejects.toThrow(TypeError);
+  expect(ledger.mkdtempCalls).toEqual([]);
+  expect(ledger.writes).toEqual([]);
+  expect(ledger.privateDirectoryRemovals).toEqual([]);
 });

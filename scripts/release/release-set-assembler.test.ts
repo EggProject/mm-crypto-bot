@@ -47,9 +47,18 @@ function input(app: "bot" | "config-search"): ReleaseSetInput {
     zipBytes,
   };
 }
+interface FileSystemOperationLedger {
+  readonly mkdtempCalls: string[];
+  readonly removals: string[];
+  readonly writes: string[];
+}
+
+function createFileSystemOperationLedger(): FileSystemOperationLedger {
+  return { mkdtempCalls: [], removals: [], writes: [] };
+}
+
 function dependencies(
-  writes: string[],
-  removals: string[],
+  ledger: FileSystemOperationLedger,
   directory = `/private/${releaseSetCandidatePrefix}safe`,
   shouldWriteFail = false,
 ): ReleaseDependencies {
@@ -61,15 +70,18 @@ function dependencies(
       lstat: (): Promise<{ readonly isRegularFile: () => boolean; readonly isSymbolicLink: () => boolean }> =>
         Promise.resolve({ isRegularFile: () => true, isSymbolicLink: () => false }),
       mkdir: (): Promise<void> => Promise.resolve(),
-      mkdtemp: (): Promise<{ readonly path: string }> => Promise.resolve({ path: directory }),
+      mkdtemp: (request): Promise<{ readonly path: string }> => {
+        ledger.mkdtempCalls.push(`${request.parentDirectory}:${request.prefix}`);
+        return Promise.resolve({ path: directory });
+      },
       readFile: (): Promise<Uint8Array> => Promise.resolve(new Uint8Array()),
       removePrivateDirectory: (value): Promise<void> => {
-        removals.push(value.path);
+        ledger.removals.push(value.path);
         return Promise.resolve();
       },
       removeFile: (): Promise<void> => Promise.resolve(),
       writeFile: (target, bytes): Promise<void> => {
-        writes.push(`${target}:${String(bytes.length)}`);
+        ledger.writes.push(`${target}:${String(bytes.length)}`);
         return shouldWriteFail ? Promise.reject(new Error("write failed")) : Promise.resolve();
       },
     },
@@ -91,49 +103,113 @@ function dependencies(
   };
 }
 test("writes exactly one independently validated outer archive below its private candidate", async () => {
-  const writes: string[] = [];
-  const removals: string[] = [];
-  const result = await assembleReleaseSetCandidate(dependencies(writes, removals), [
+  const ledger = createFileSystemOperationLedger();
+  const result = await assembleReleaseSetCandidate(dependencies(ledger), [
     input("config-search"),
     input("bot"),
   ]);
   expect(result.directory.path).toBe(`/private/${releaseSetCandidatePrefix}safe`);
-  expect(writes).toHaveLength(1);
-  expect(removals).toEqual([]);
+  expect(ledger.mkdtempCalls).toHaveLength(1);
+  expect(ledger.writes).toHaveLength(1);
+  expect(ledger.removals).toEqual([]);
 });
 test("rejects an escaped private candidate directory before writing", async () => {
-  const writes: string[] = [];
-  const removals: string[] = [];
+  const ledger = createFileSystemOperationLedger();
   await expect(
-    assembleReleaseSetCandidate(dependencies(writes, removals, "/escape"), [
-      input("bot"),
-      input("config-search"),
-    ]),
+    assembleReleaseSetCandidate(dependencies(ledger, "/escape"), [input("bot"), input("config-search")]),
   ).rejects.toThrow("escapes private root");
-  expect(writes).toEqual([]);
-  expect(removals).toEqual([]);
+  expect(ledger.writes).toEqual([]);
+  expect(ledger.removals).toEqual([]);
 });
 test("cleans only its private candidate when writing the outer archive fails", async () => {
-  const writes: string[] = [];
-  const removals: string[] = [];
+  const ledger = createFileSystemOperationLedger();
   await expect(
-    assembleReleaseSetCandidate(dependencies(writes, removals, undefined, true), [
+    assembleReleaseSetCandidate(dependencies(ledger, undefined, true), [
       input("bot"),
       input("config-search"),
     ]),
   ).rejects.toThrow("write failed");
-  expect(writes).toHaveLength(1);
-  expect(removals).toEqual([`/private/${releaseSetCandidatePrefix}safe`]);
+  expect(ledger.writes).toHaveLength(1);
+  expect(ledger.removals).toEqual([`/private/${releaseSetCandidatePrefix}safe`]);
 });
 
 test("fails closed when a failed write cannot remove its own private candidate", async () => {
-  const writes: string[] = [];
-  const removals: string[] = [];
-  const current = dependencies(writes, removals, undefined, true);
+  const ledger = createFileSystemOperationLedger();
+  const current = dependencies(ledger, undefined, true);
   current.fileSystem.removePrivateDirectory = (): Promise<void> => Promise.reject(new Error("remove failed"));
   await expect(assembleReleaseSetCandidate(current, [input("bot"), input("config-search")])).rejects.toThrow(
     "release-set private candidate cleanup failed",
   );
-  expect(writes).toHaveLength(1);
-  expect(removals).toEqual([]);
+  expect(ledger.writes).toHaveLength(1);
+  expect(ledger.removals).toEqual([]);
+});
+
+test("rejects a caller manifest that diverges from its authenticated inner archive before private I/O", async () => {
+  const ledger = createFileSystemOperationLedger();
+  const bot = input("bot");
+  const divergentBot = {
+    ...bot,
+    innerManifest: { ...bot.innerManifest, commit: "c".repeat(40) },
+  };
+  await expect(
+    assembleReleaseSetCandidate(dependencies(ledger), [divergentBot, input("config-search")]),
+  ).rejects.toThrow("release-set authenticated manifest mismatch");
+  expect(ledger.mkdtempCalls).toEqual([]);
+  expect(ledger.writes).toEqual([]);
+  expect(ledger.removals).toEqual([]);
+});
+
+test("rejects accessor-backed release-set inputs before reading their mutable values", async () => {
+  const ledger = createFileSystemOperationLedger();
+  const bot = input("bot");
+  let wasAccessorRead = false;
+  const accessorBackedBot = {
+    application: bot.application,
+    innerManifest: bot.innerManifest,
+    sidecarBytes: bot.sidecarBytes,
+    get zipBytes(): Uint8Array {
+      wasAccessorRead = true;
+      return bot.zipBytes;
+    },
+  };
+  await expect(
+    assembleReleaseSetCandidate(dependencies(ledger), [accessorBackedBot, input("config-search")]),
+  ).rejects.toThrow(TypeError);
+  expect(wasAccessorRead).toBe(false);
+  expect(ledger.mkdtempCalls).toEqual([]);
+  expect(ledger.writes).toEqual([]);
+  expect(ledger.removals).toEqual([]);
+});
+
+test("rejects malformed own-data input records before private I/O", async () => {
+  const bot = input("bot");
+  const { zipBytes, ...missingZipBytes } = bot;
+  for (const malformed of [
+    undefined,
+    { ...bot, application: "invalid" },
+    missingZipBytes,
+    { ...missingZipBytes, unrelated: zipBytes },
+  ]) {
+    const ledger = createFileSystemOperationLedger();
+    await expect(
+      Reflect.apply(assembleReleaseSetCandidate, undefined, [
+        dependencies(ledger),
+        [malformed, input("config-search")],
+      ]),
+    ).rejects.toThrow(TypeError);
+    expect(ledger.mkdtempCalls).toEqual([]);
+    expect(ledger.writes).toEqual([]);
+    expect(ledger.removals).toEqual([]);
+  }
+});
+
+test("rejects source byte mutation that occurs after verification begins and before private I/O", async () => {
+  const ledger = createFileSystemOperationLedger();
+  const bot = input("bot");
+  const pending = assembleReleaseSetCandidate(dependencies(ledger), [bot, input("config-search")]);
+  bot.zipBytes.fill(0);
+  await expect(pending).rejects.toThrow(TypeError);
+  expect(ledger.mkdtempCalls).toEqual([]);
+  expect(ledger.writes).toEqual([]);
+  expect(ledger.removals).toEqual([]);
 });
