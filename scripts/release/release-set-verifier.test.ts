@@ -8,6 +8,15 @@ import { encodeStoreZip } from "./zip-store-encoder";
 
 const text = new TextEncoder();
 
+function crc32(bytes: Uint8Array): number {
+  let value = 0xff_ff_ff_ff;
+  for (const byte of bytes) {
+    value ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) value = (value >>> 1) ^ (value & 1 ? 0xed_b8_83_20 : 0);
+  }
+  return (value ^ 0xff_ff_ff_ff) >>> 0;
+}
+
 function input(app: "bot" | "config-search"): ReleaseSetInput {
   const readme = text.encode(app);
   const executable = text.encode(`${app}-binary`);
@@ -88,12 +97,25 @@ function replaceManifest(bytes: Uint8Array, manifestBytes: Uint8Array): Uint8Arr
   result.set(manifestBytes, start);
   result.set(bytes.slice(start + length), start + manifestBytes.length);
   const mutated = new DataView(result.buffer);
+  const checksum = crc32(manifestBytes);
+  mutated.setUint32(local + 14, checksum, true);
   mutated.setUint32(local + 18, manifestBytes.length, true);
   mutated.setUint32(local + 22, manifestBytes.length, true);
   const shiftedCentral = central + difference;
+  mutated.setUint32(shiftedCentral + 16, checksum, true);
   mutated.setUint32(shiftedCentral + 20, manifestBytes.length, true);
   mutated.setUint32(shiftedCentral + 24, manifestBytes.length, true);
   mutated.setUint32(result.byteLength - 6, centralStart + difference, true);
+  return result;
+}
+
+function withGapBeforeCentralDirectory(bytes: Uint8Array): Uint8Array {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const central = view.getUint32(bytes.byteLength - 6, true);
+  const result = new Uint8Array(bytes.byteLength + 1);
+  result.set(bytes.slice(0, central));
+  result.set(bytes.slice(central), central + 1);
+  new DataView(result.buffer).setUint32(result.byteLength - 6, central + 1, true);
   return result;
 }
 
@@ -184,6 +206,94 @@ test("rejects local and central timestamps that are not derived from the manifes
   await expect(verifyReleaseSetArchive({ zipBytes })).rejects.toThrow("release-set archive is invalid");
 });
 
+test("rejects every fixed-width outer ZIP metadata mutation before trusting its payloads", async () => {
+  const current = archive();
+  const first = centralOffsets(current.zipBytes)[0];
+  if (first === undefined) throw new Error("missing first central entry");
+  const local = localOffset(current.zipBytes, first);
+  const eocd = current.zipBytes.byteLength - 22;
+  const broken = [
+    mutate(current.zipBytes, (view) => {
+      view.setUint16(eocd + 4, 1, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint16(eocd + 6, 1, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint32(eocd + 12, 1, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint16(eocd + 20, 1, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint16(first + 4, 0, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint16(first + 6, 0, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint32(first + 16, 1, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint16(first + 30, 1, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint16(first + 28, 0xff_ff, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint16(first + 32, 1, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint16(first + 34, 1, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint32(first + 36, 1, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint16(local + 4, 0, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint32(local + 14, 1, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint32(local + 18, 0, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint16(local + 28, 1, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      view.setUint32(eocd + 16, current.zipBytes.byteLength, true);
+    }),
+    mutate(current.zipBytes, (view) => {
+      const payload = local + 30 + view.getUint16(local + 26, true);
+      view.setUint8(payload, (view.getUint8(payload) ^ 1) & 255);
+    }),
+    withGapBeforeCentralDirectory(current.zipBytes),
+    current.zipBytes.slice(0, -1),
+  ];
+  for (const zipBytes of broken)
+    await expect(verifyReleaseSetArchive({ zipBytes })).rejects.toThrow("release-set archive is invalid");
+});
+
+test("snapshots zipBytes exactly once before asynchronous verification", async () => {
+  const current = archive();
+  const original = new Uint8Array(current.zipBytes);
+  let reads = 0;
+  const getterInput: { readonly zipBytes: Uint8Array } = {
+    get zipBytes(): Uint8Array {
+      reads += 1;
+      return reads === 1 ? current.zipBytes : new Uint8Array([0]);
+    },
+  };
+  const fromGetter = await verifyReleaseSetArchive(getterInput);
+  expect(reads).toBe(1);
+  expect(fromGetter.zipBytes).toEqual(original);
+
+  const pending = verifyReleaseSetArchive({ zipBytes: current.zipBytes });
+  current.zipBytes.fill(0);
+  await expect(pending).resolves.toMatchObject({ verified: true, zipBytes: original });
+});
+
 test("rejects digest, sidecar, descriptor mapping, reversed-manifest, and inner identity breaks", async () => {
   const current = archive();
   const central = centralOffsets(current.zipBytes);
@@ -191,8 +301,13 @@ test("rejects digest, sidecar, descriptor mapping, reversed-manifest, and inner 
   if (first === undefined) throw new Error("missing first central entry");
   const firstLocal = localOffset(current.zipBytes, first);
   const mutatedPayload = new Uint8Array(current.zipBytes);
-  const payloadStart = firstLocal + 30 + new DataView(mutatedPayload.buffer).getUint16(firstLocal + 26, true);
+  const mutatedView = new DataView(mutatedPayload.buffer);
+  const payloadStart = firstLocal + 30 + mutatedView.getUint16(firstLocal + 26, true);
   mutatedPayload.set([(mutatedPayload.at(payloadStart) ?? 0) ^ 1], payloadStart);
+  const payloadLength = mutatedView.getUint32(first + 24, true);
+  const checksum = crc32(mutatedPayload.slice(payloadStart, payloadStart + payloadLength));
+  mutatedView.setUint32(firstLocal + 14, checksum, true);
+  mutatedView.setUint32(first + 16, checksum, true);
 
   const badSidecar = input("bot");
   const search = input("config-search");

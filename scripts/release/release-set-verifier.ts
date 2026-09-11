@@ -15,13 +15,19 @@ const expectedNames = [
   "apps/config-search/mm-crypto-bot-config-search-0.1.0-bun-linux-x64.zip.sha256",
   "release-set-manifest.json",
 ];
+const centralSignature = 0x02_01_4b_50;
+const endSignature = 0x06_05_4b_50;
+const localSignature = 0x04_03_4b_50;
+const expectedAttributes = (0o10_0644 << 16) >>> 0;
 
 export async function verifyReleaseSetArchive(input: {
   readonly zipBytes: Uint8Array;
 }): Promise<VerifiedReleaseSetArchive> {
   try {
-    if (!(input.zipBytes instanceof Uint8Array)) throw new Error("input");
-    const entries = parse(input.zipBytes);
+    const candidate = input.zipBytes;
+    if (!(candidate instanceof Uint8Array)) throw new Error("input");
+    const zipBytes = new Uint8Array(candidate);
+    const entries = parse(zipBytes);
     if (!hasExpectedLayout(entries)) throw new Error("layout");
     const manifestEntry = entries[4];
     const raw = JSON.parse(decoder.decode(manifestEntry.bytes)) as unknown;
@@ -65,7 +71,7 @@ export async function verifyReleaseSetArchive(input: {
       );
     }
     if (!hasSameIdentity(manifest, inner)) throw new Error("identity");
-    return Object.freeze({ manifest, verified: true, zipBytes: new Uint8Array(input.zipBytes) });
+    return Object.freeze({ manifest, verified: true, zipBytes });
   } catch {
     throw new Error("release-set archive is invalid");
   }
@@ -90,51 +96,115 @@ function hasExpectedLayout(
 }
 function parse(bytes: Uint8Array): readonly Entry[] {
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (bytes.length < 22) throw new Error("ZIP");
-  const eocd = bytes.length - 22;
-  if (v.getUint32(eocd, true) !== 0x06_05_4b_50) throw new Error("ZIP");
-  const count = v.getUint16(eocd + 10, true);
-  const central = v.getUint32(eocd + 16, true);
-  let offset = central;
+  const length = bytes.length;
+  if (length < 22) throw new Error("ZIP");
+  const eocd = length - 22;
+  within(length, eocd, 22);
+  if (
+    v.getUint32(eocd, true) !== endSignature ||
+    v.getUint16(eocd + 4, true) !== 0 ||
+    v.getUint16(eocd + 6, true) !== 0 ||
+    v.getUint16(eocd + 8, true) !== 5 ||
+    v.getUint16(eocd + 10, true) !== 5 ||
+    v.getUint16(eocd + 20, true) !== 0
+  )
+    throw new Error("end");
+  const centralSize = v.getUint32(eocd + 12, true);
+  const centralOffset = v.getUint32(eocd + 16, true);
+  if (!isWithin(length, centralOffset, centralSize) || centralOffset + centralSize !== eocd)
+    throw new Error("central bounds");
+  let central = centralOffset;
+  let local = 0;
   const entries: Entry[] = [];
-  for (let index = 0; index < count; index += 1) {
+  for (let index = 0; index < 5; index += 1) {
+    within(length, central, 46);
+    const nameLength = v.getUint16(central + 28, true);
+    const extraLength = v.getUint16(central + 30, true);
+    const commentLength = v.getUint16(central + 32, true);
+    const centralLength = 46 + nameLength + extraLength + commentLength;
+    within(length, central, centralLength);
+    const size = v.getUint32(central + 24, true);
+    const compressed = v.getUint32(central + 20, true);
+    const checksum = v.getUint32(central + 16, true);
+    const localOffset = v.getUint32(central + 42, true);
     if (
-      v.getUint32(offset, true) !== 0x02_01_4b_50 ||
-      v.getUint16(offset + 8, true) !== 0 ||
-      v.getUint16(offset + 10, true) !== 0 ||
-      v.getUint16(offset + 30, true) !== 0 ||
-      v.getUint16(offset + 32, true) !== 0
+      compressed !== size ||
+      extraLength !== 0 ||
+      commentLength !== 0 ||
+      localOffset !== local ||
+      v.getUint32(central, true) !== centralSignature ||
+      v.getUint16(central + 4, true) !== 0x03_14 ||
+      v.getUint16(central + 6, true) !== 20 ||
+      v.getUint16(central + 8, true) !== 0 ||
+      v.getUint16(central + 10, true) !== 0 ||
+      v.getUint16(central + 34, true) !== 0 ||
+      v.getUint16(central + 36, true) !== 0 ||
+      v.getUint32(central + 38, true) !== expectedAttributes
     )
       throw new Error("central");
-    const size = v.getUint32(offset + 24, true);
-    if (size !== v.getUint32(offset + 20, true)) throw new Error("store");
-    const length = v.getUint16(offset + 28, true);
-    const local = v.getUint32(offset + 42, true);
-    const name = decoder.decode(bytes.slice(offset + 46, offset + 46 + length));
+    const nameBytes = bytes.slice(central + 46, central + 46 + nameLength);
+    const name = decoder.decode(nameBytes);
+    within(length, local, 30);
+    const localNameLength = v.getUint16(local + 26, true);
+    const localExtraLength = v.getUint16(local + 28, true);
+    const localHeaderLength = 30 + localNameLength + localExtraLength;
+    within(length, local, localHeaderLength);
     if (
-      v.getUint32(local, true) !== 0x04_03_4b_50 ||
+      localNameLength !== nameLength ||
+      localExtraLength !== 0 ||
+      v.getUint32(local, true) !== localSignature ||
+      v.getUint16(local + 4, true) !== 20 ||
       v.getUint16(local + 6, true) !== 0 ||
       v.getUint16(local + 8, true) !== 0 ||
-      v.getUint16(local + 28, true) !== 0 ||
-      decoder.decode(bytes.slice(local + 30, local + 30 + length)) !== name
+      v.getUint16(local + 10, true) !== v.getUint16(central + 12, true) ||
+      v.getUint16(local + 12, true) !== v.getUint16(central + 14, true) ||
+      v.getUint32(local + 14, true) !== checksum ||
+      v.getUint32(local + 18, true) !== compressed ||
+      v.getUint32(local + 22, true) !== size ||
+      !isSameBytes(bytes.slice(local + 30, local + 30 + localNameLength), nameBytes)
     )
       throw new Error("local");
-    const payload = bytes.slice(local + 30 + length, local + 30 + length + size);
-    if (payload.length !== size) throw new Error("payload");
+    const payloadOffset = local + localHeaderLength;
+    within(length, payloadOffset, size);
+    const payload = bytes.slice(payloadOffset, payloadOffset + size);
+    if (crc32(payload) !== checksum) throw new Error("payload");
     entries.push(
       Object.freeze({
         bytes: payload,
-        date: v.getUint16(offset + 14, true),
+        date: v.getUint16(central + 14, true),
         localDate: v.getUint16(local + 12, true),
         localTime: v.getUint16(local + 10, true),
-        mode: (v.getUint32(offset + 38, true) >>> 16) & 0o7777,
+        mode: (v.getUint32(central + 38, true) >>> 16) & 0o7777,
         path: name,
-        time: v.getUint16(offset + 12, true),
+        time: v.getUint16(central + 12, true),
       }),
     );
-    offset += 46 + length;
+    local = payloadOffset + size;
+    central += centralLength;
   }
+  if (local !== centralOffset || central !== eocd) throw new Error("layout");
   return entries;
+}
+function isWithin(length: number, offset: number, size: number): boolean {
+  return (
+    Number.isSafeInteger(offset) &&
+    Number.isSafeInteger(size) &&
+    offset >= 0 &&
+    size >= 0 &&
+    offset <= length &&
+    size <= length - offset
+  );
+}
+function within(length: number, offset: number, size: number): void {
+  if (!isWithin(length, offset, size)) throw new Error("ZIP bounds");
+}
+function crc32(bytes: Uint8Array): number {
+  let value = 0xff_ff_ff_ff;
+  for (const byte of bytes) {
+    value ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) value = (value >>> 1) ^ (value & 1 ? 0xed_b8_83_20 : 0);
+  }
+  return (value ^ 0xff_ff_ff_ff) >>> 0;
 }
 function validateManifest(value: unknown): ReleaseSetManifestV1 {
   if (

@@ -229,6 +229,143 @@ test("retains the original redacted failure when cleanup fails before publicatio
   });
 });
 
+test("rejects hostile publication boundaries without any port activity", async () => {
+  const valid = { candidate: candidate(), privateRoot, publicationRoot };
+  const accessor = Object.defineProperty({ ...valid }, "privateRoot", {
+    get: (): string => privateRoot,
+  });
+  const missing = { candidate: candidate(), privateRoot };
+  const nonDataCandidate = Object.defineProperty(
+    { archivePath: candidate().archivePath, basename: releaseSetArchiveBasename },
+    "directory",
+    { get: (): { readonly path: string } => ({ path: candidate().directory.path }) },
+  );
+  const hostileCandidate = { candidate: nonDataCandidate, privateRoot, publicationRoot };
+  const throwingDescriptor = new Proxy(valid, {
+    getOwnPropertyDescriptor: (): PropertyDescriptor => {
+      throw new Error("descriptor trap");
+    },
+  });
+  for (const input of [accessor, missing, hostileCandidate, throwingDescriptor, undefined]) {
+    const current = dependencies({});
+    await expect(Reflect.apply(publishReleaseSet, undefined, [input, current.dependencies])).resolves.toEqual(
+      {
+        kind: "publication-failed",
+      },
+    );
+    expect(current.calls).toEqual([]);
+  }
+});
+
+test("uses each validated boundary value only once after snapshotting it", async () => {
+  const ledger: string[] = [];
+  const directory = new Proxy(
+    { path: candidate().directory.path },
+    {
+      getOwnPropertyDescriptor(target, key): PropertyDescriptor | undefined {
+        if (key !== "path") return Reflect.getOwnPropertyDescriptor(target, key);
+        ledger.push("directory.path");
+        return {
+          configurable: true,
+          enumerable: true,
+          value: ledger.filter((entry) => entry === "directory.path").length === 1 ? target.path : "/other",
+        };
+      },
+    },
+  );
+  const release = new Proxy(
+    {
+      archivePath: candidate().archivePath,
+      basename: releaseSetArchiveBasename,
+      directory,
+    },
+    {
+      getOwnPropertyDescriptor(target, key): PropertyDescriptor | undefined {
+        if (key !== "archivePath") return Reflect.getOwnPropertyDescriptor(target, key);
+        ledger.push("candidate.archivePath");
+        return {
+          configurable: true,
+          enumerable: true,
+          value:
+            ledger.filter((entry) => entry === "candidate.archivePath").length === 1
+              ? target.archivePath
+              : "/other/archive.zip",
+        };
+      },
+    },
+  );
+  const input = new Proxy(
+    { candidate: release, privateRoot, publicationRoot },
+    {
+      getOwnPropertyDescriptor(target, key): PropertyDescriptor | undefined {
+        if (key === "privateRoot") {
+          ledger.push("privateRoot");
+          return {
+            configurable: true,
+            enumerable: true,
+            value:
+              ledger.filter((entry) => entry === "privateRoot").length === 1 ? target.privateRoot : "/other",
+          };
+        }
+        if (key === "publicationRoot") {
+          ledger.push("publicationRoot");
+          return {
+            configurable: true,
+            enumerable: true,
+            value:
+              ledger.filter((entry) => entry === "publicationRoot").length === 1
+                ? target.publicationRoot
+                : "/other",
+          };
+        }
+        if (key !== "candidate") return Reflect.getOwnPropertyDescriptor(target, key);
+        ledger.push("candidate");
+        return {
+          configurable: true,
+          enumerable: true,
+          value:
+            ledger.filter((entry) => entry === "candidate").length === 1
+              ? target.candidate
+              : candidate("/other"),
+        };
+      },
+    },
+  );
+  const current = dependencies({});
+  await expect(Reflect.apply(publishReleaseSet, undefined, [input, current.dependencies])).resolves.toEqual({
+    kind: "published",
+  });
+  expect(ledger).toEqual([
+    "privateRoot",
+    "publicationRoot",
+    "candidate",
+    "candidate.archivePath",
+    "directory.path",
+  ]);
+  expect(current.calls).toEqual([
+    `lstat:${candidate().archivePath}`,
+    `read:${candidate().archivePath}`,
+    `link:${candidate().archivePath}:/publication/0.1.0/bun-linux-x64/${releaseSetArchiveBasename}`,
+    `remove:${candidate().directory.path}`,
+  ]);
+});
+
+test("contains hostile link error reflection and still attempts private cleanup once", async () => {
+  const current = dependencies({
+    linkError: new Proxy(new Error("hostile link error"), {
+      getOwnPropertyDescriptor: (): PropertyDescriptor => {
+        throw new Error("error descriptor trap");
+      },
+    }),
+  });
+  await expect(
+    publishReleaseSet({ candidate: candidate(), privateRoot, publicationRoot }, current.dependencies),
+  ).resolves.toEqual({ kind: "publication-failed" });
+  expect(current.calls.filter((entry) => entry.startsWith("remove:"))).toEqual([
+    `remove:${candidate().directory.path}`,
+  ]);
+});
+
 test("Node/Bun publication adapter creates exactly one hard link and preserves an existing destination", async () => {
   const directoryPath = await disk.mkdtemp(path.join(tmpdir(), "mm-release-set-publication-"));
   const source = path.join(directoryPath, "private-source.zip");

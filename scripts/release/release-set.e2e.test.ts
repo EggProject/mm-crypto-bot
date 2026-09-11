@@ -6,22 +6,19 @@ import { expect, test } from "vitest";
 
 import { canonicalJson, formatSha256Sidecar, sha256Hex, type ReleaseManifestV1 } from "./release-contract";
 import { runReleaseVerifyCli, verifyPublishedReleaseSet } from "./release-artifact-verifier";
-import { deriveReleaseSetDestination, type ReleaseSetInput } from "./release-set-contract";
+import {
+  canonicalReleaseSetInputs,
+  createReleaseSetManifest,
+  deriveReleaseSetDestination,
+  type ReleaseSetInput,
+} from "./release-set-contract";
 import { nodeReleasePublicationFileSystem } from "./release-ports";
+import type { ReleaseDependencies, ReleasePrivateDirectory } from "./release-ports";
+import { assembleReleaseSetCandidate } from "./release-set-assembler";
 import { encodeReleaseSetZip } from "./release-set-zip";
 import { verifyReleaseSetArchive } from "./release-set-verifier";
 import { nodeReleaseArtifactReadPort } from "./verify";
 import { encodeStoreZip } from "./zip-store-encoder";
-
-import "./release-artifact-verifier.test";
-import "./release-coverage.test";
-import "./release-set-assembler.test";
-import "./release-set-contract.test";
-import "./release-set-publication.test";
-import "./release-set-reproducibility.test";
-import "./release-set-verifier.test";
-import "./release-set-zip.test";
-import "./verify.test";
 
 const text = new TextEncoder();
 const disk = Object.freeze({
@@ -32,6 +29,39 @@ const disk = Object.freeze({
   remove: rm,
   writeFile,
 });
+
+function createReleaseSetAssemblyDependencies(directory: string): ReleaseDependencies {
+  return {
+    compiler: { compile: (): Promise<void> => Promise.resolve() },
+    fileSystem: {
+      chmod: (): Promise<void> => Promise.resolve(),
+      inspectPath: (): Promise<"missing"> => Promise.resolve("missing"),
+      lstat: (): Promise<{ readonly isRegularFile: () => boolean; readonly isSymbolicLink: () => boolean }> =>
+        Promise.resolve({ isRegularFile: (): boolean => true, isSymbolicLink: (): boolean => false }),
+      mkdir: (): Promise<void> => Promise.resolve(),
+      mkdtemp: (): Promise<ReleasePrivateDirectory> => Promise.resolve({ path: directory }),
+      readFile: (): Promise<Uint8Array> => Promise.resolve(new Uint8Array()),
+      removeFile: (): Promise<void> => Promise.resolve(),
+      removePrivateDirectory: (): Promise<void> => Promise.resolve(),
+      writeFile: (): Promise<void> => Promise.resolve(),
+    },
+    git: {
+      headCommit: (): Promise<string> => Promise.resolve("a".repeat(40)),
+      headCommitEpoch: (): Promise<string> => Promise.resolve("1788199914"),
+      porcelainStatus: (): Promise<string> => Promise.resolve(""),
+    },
+    process: {
+      run: (): Promise<{ readonly exitCode: number; readonly stderr: string; readonly stdout: string }> =>
+        Promise.resolve({ exitCode: 0, stderr: "", stdout: "" }),
+    },
+    repositoryRoot: "/repo",
+    temporaryRoot: "/private",
+    toolchain: {
+      bunVersion: (): Promise<string> => Promise.resolve("1.3.14"),
+      nodeVersion: (): Promise<string> => Promise.resolve("24.19.0"),
+    },
+  };
+}
 
 function input(app: "bot" | "config-search"): ReleaseSetInput {
   const readme = text.encode(app);
@@ -150,5 +180,46 @@ test("publishes one verified release set by hard link, survives private deletion
     expect(stderr).toEqual(["release verification failed: release set archive is invalid\n"]);
   } finally {
     await disk.remove(temporaryRoot, { force: true, recursive: true });
+  }
+});
+
+test("rejects invalid release-set inputs and identity drift before archive publication", () => {
+  const bot = input("bot");
+  const search = input("config-search");
+  expect(canonicalReleaseSetInputs([search, bot])).toEqual([bot, search]);
+  for (const invalid of [
+    [bot],
+    [bot, bot],
+    [bot, { ...search, sidecarBytes: [] }],
+    [bot, { ...search, innerManifest: { ...search.innerManifest, app: "bot" } }],
+  ]) {
+    expect(() => {
+      Reflect.apply(createReleaseSetManifest, undefined, [invalid]);
+    }).toThrow();
+  }
+  for (const changed of [
+    { commit: "c".repeat(40) },
+    { lockfileSha256: "d".repeat(64) },
+    { sourceDateEpoch: 1_788_199_916 },
+    { version: "0.1.1" },
+    { target: { arch: "x64", bunTarget: "wrong", os: "linux" } },
+    { toolchain: { bun: "1.3.15", nodeMetadata: "24.19.0" } },
+  ] as const) {
+    expect(() => {
+      Reflect.apply(createReleaseSetManifest, undefined, [
+        [bot, { ...search, innerManifest: { ...search.innerManifest, ...changed } }],
+      ]);
+    }).toThrow("release-set identity mismatch");
+  }
+});
+
+test("rejects every malformed private outer-candidate directory before writing", async () => {
+  for (const directory of ["/escape", "/private/not-a-candidate", "/private/release-set-candidate-"]) {
+    await expect(
+      assembleReleaseSetCandidate(createReleaseSetAssemblyDependencies(directory), [
+        input("bot"),
+        input("config-search"),
+      ]),
+    ).rejects.toThrow("release-set candidate directory escapes private root");
   }
 });

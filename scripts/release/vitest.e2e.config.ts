@@ -8,6 +8,10 @@ export default defineConfig({
       "release-smoke.e2e.test.ts",
       "release-private-candidate-reproducibility.e2e.test.ts",
       "release-set.e2e.test.ts",
+      "release-set-archive.e2e.test.ts",
+      "release-set-publication-workflow.e2e.test.ts",
+      "release-coverage-validation.e2e.test.ts",
+      "release-coverage-node-adapter.e2e.test.ts",
     ],
     coverage: {
       provider: "v8",
