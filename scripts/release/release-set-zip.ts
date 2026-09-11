@@ -11,6 +11,10 @@ const local = 0x04_03_4b_50;
 const central = 0x02_01_4b_50;
 const end = 0x06_05_4b_50;
 
+export function compareReleaseSetPaths(left: string, right: string): number {
+  return Number(left > right) - Number(left < right);
+}
+
 export function encodeReleaseSetZip(inputs: readonly ReleaseSetInput[]): ReleaseSetArchive {
   const canonical = canonicalReleaseSetInputs(inputs);
   const manifest = createReleaseSetManifest(canonical);
@@ -20,7 +24,7 @@ export function encodeReleaseSetZip(inputs: readonly ReleaseSetInput[]): Release
     { bytes: canonical[1].sidecarBytes, path: manifest.applications[1].sidecar.path },
     { bytes: canonical[1].zipBytes, path: manifest.applications[1].zip.path },
     { bytes: canonicalReleaseSetManifestBytes(manifest), path: "release-set-manifest.json" },
-  ].toSorted((a, b) => a.path.localeCompare(b.path));
+  ].toSorted((a, b) => compareReleaseSetPaths(a.path, b.path));
   const stamp = dos(manifest.sourceDateEpoch);
   const locals = entries.reduce(
     (size, entry) => size + 30 + text.encode(entry.path).length + entry.bytes.length,

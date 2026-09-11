@@ -1,6 +1,14 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { nodeReleaseArtifactReadPort, runReleaseVerifyEntrypoint } from "./verify";
+import { deriveReleaseSetDestination } from "./release-set-contract";
+import { runReleaseVerifyCli, type ReleaseArtifactReadPort } from "./release-artifact-verifier";
+import {
+  defaultReleaseVerifyCliDependencies,
+  nodeReleaseArtifactReadPort,
+  runReleaseVerifyEntrypoint,
+} from "./verify";
 
 interface Expectation {
   toBe(expected: unknown): void;
@@ -39,6 +47,29 @@ const test = (name: string, run: () => void | Promise<void>): void => {
 const temporaryDirectory = "/tmp/mm-crypto-bot-task-4b-node-adapter-test";
 
 describe("release verify executable adapter", () => {
+  test("constructs the default CLI command for the sole release-set archive below repository releases", async () => {
+    const expectedRoot = path.join(fileURLToPath(new URL("../../", import.meta.url)), "releases");
+    const paths: string[] = [];
+    const fileSystem: ReleaseArtifactReadPort = {
+      lstat: (artifactPath: string) => {
+        paths.push(artifactPath);
+        return Promise.reject(new Error("fixture rejects the generated pathname"));
+      },
+      readFile: (): Promise<Uint8Array> => Promise.reject(new Error("unreachable fixture read")),
+    };
+    const stderr: string[] = [];
+    const result = await runReleaseVerifyCli(
+      [],
+      { fileSystem, repositoryRoot: defaultReleaseVerifyCliDependencies.repositoryRoot },
+      { writeStderr: (value: string): void => void stderr.push(value), writeStdout: (): void => undefined },
+    );
+
+    expect(defaultReleaseVerifyCliDependencies.repositoryRoot).toBe(expectedRoot);
+    expect(paths).toEqual([deriveReleaseSetDestination(expectedRoot)]);
+    expect(result).toBe(1);
+    expect(stderr).toEqual(["release verification failed: release set archive is invalid\n"]);
+  });
+
   test("does nothing when imported instead of executed as the main module", async () => {
     // Catches importing the adapter changing global process exit state or invoking release verification.
     const exitCodeTarget: { exitCode: number | undefined } = { exitCode: undefined };

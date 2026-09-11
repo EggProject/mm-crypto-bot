@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   runReleaseVerifyCli,
   type ReleaseArtifactReadPort,
+  type ReleaseArtifactVerificationDependencies,
   type ReleaseVerificationOutput,
 } from "./release-artifact-verifier";
 
@@ -12,7 +13,6 @@ export interface ReleaseVerifyEntrypointDependencies {
   readonly isMain: boolean;
   readonly runCommand: () => Promise<0 | 1 | 2>;
 }
-
 export const nodeReleaseArtifactReadPort: ReleaseArtifactReadPort = Object.freeze({
   lstat: async (artifactPath: string) => {
     const nodeFileSystem = await import("node:fs/promises");
@@ -36,7 +36,11 @@ export async function runReleaseVerifyEntrypoint(
   return dependencies.exitCodeTarget.exitCode;
 }
 
-const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
+const moduleRootUrl = new URL("../../", import.meta.url);
+export const defaultReleaseVerifyCliDependencies: ReleaseArtifactVerificationDependencies = Object.freeze({
+  fileSystem: nodeReleaseArtifactReadPort,
+  repositoryRoot: path.join(fileURLToPath(moduleRootUrl), "releases"),
+});
 const output: ReleaseVerificationOutput = Object.freeze({
   writeStderr: process.stderr.write.bind(process.stderr),
   writeStdout: process.stdout.write.bind(process.stdout),
@@ -48,7 +52,7 @@ process.exitCode = await runReleaseVerifyEntrypoint({
   runCommand: runReleaseVerifyCli.bind(
     undefined,
     process.argv.slice(2),
-    { fileSystem: nodeReleaseArtifactReadPort, repositoryRoot: path.join(repoRoot, "releases") },
+    defaultReleaseVerifyCliDependencies,
     output,
   ),
 });
