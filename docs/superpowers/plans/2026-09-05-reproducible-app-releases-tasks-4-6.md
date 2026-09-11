@@ -86,14 +86,16 @@ network, and actual project `releases/**` creation remain excluded here.
 
 ```ts
 export type ReleaseSetPayload = Readonly<{ bytes: number; sha256: string }>;
+export const releaseSetCandidatePrefix = "release-set-candidate-" as const;
 export type ReleaseSetArtifactDescriptor = Readonly<ReleaseSetPayload & { path: string }>;
-export type ReleaseSetApplicationRecord = Readonly<{
-  app: ReleaseApplication;
-  sidecar: ReleaseSetArtifactDescriptor;
-  zip: ReleaseSetArtifactDescriptor;
-}>;
+export type ReleaseSetApplicationRecord<TApplication extends ReleaseApplication = ReleaseApplication> =
+  Readonly<{
+    app: TApplication;
+    sidecar: ReleaseSetArtifactDescriptor;
+    zip: ReleaseSetArtifactDescriptor;
+  }>;
 export type ReleaseSetManifestV1 = Readonly<{
-  applications: readonly [ReleaseSetApplicationRecord, ReleaseSetApplicationRecord];
+  applications: readonly [ReleaseSetApplicationRecord<"bot">, ReleaseSetApplicationRecord<"config-search">];
   commit: string;
   lockfileSha256: string;
   schema: "mm-crypto-bot.release-set-manifest/v1";
@@ -170,20 +172,30 @@ export function assertReproducibleReleaseSet(input: {
 - [ ] **GREEN contract through verifier:** implement pure canonical manifest and
       STORE outer ZIP with exactly five `0644` UTF-16/code-unit ordered entries;
       inputs are inner ZIP+sidecar entry bytes in the private outer archive, never
-      project release filesystem paths. Independently reject malformed, duplicate, traversal, wrong
-      name/order/mode, noncanonical manifest, digest/length/sidecar/mapping/identity
-      failures. `assembleReleaseSetCandidate` runs current inner verification then
+      project release filesystem paths. `createReleaseSetManifest` and
+      `encodeReleaseSetZip` accept either input permutation only when there is
+      exactly one `bot` and one `config-search`, canonicalize to that exact array
+      order, and must produce byte-identical manifest and ZIP bytes for both
+      input orders. Independently reject malformed, duplicate, traversal, wrong
+      name/order/mode, reversed/noncanonical manifest applications,
+      digest/length/sidecar/mapping/identity failures. Tests first prove both
+      permutation equality and reversed-manifest rejection. Export the one literal
+      `releaseSetCandidatePrefix = "release-set-candidate-" as const` from
+      `release-set-contract.ts`; `assembleReleaseSetCandidate` uses it for
+      `mkdtemp`, and all publisher and negative tests import it rather than
+      repeating a string. The assembler runs current inner verification then
       only `mkdtemp`/private write; `verifyReleaseSetArchive` never reuses writer
       logic. The caller retains the trusted caller-owned unpredictable private
       root separately from the candidate; candidate directory validation requires
-      that root's direct child with the exact release-set temporary prefix and
-      nonempty suffix, and its archive path's exact fixed-basename join. Run the
-      focused command above after implementation.
+      that root's direct child with the exact `releaseSetCandidatePrefix` and
+      nonempty suffix, and its archive path's exact fixed-basename join. A wrong
+      prefix or empty suffix must fail before any port. Run the focused command
+      above after implementation.
 - [ ] **GREEN canonical create-only publication:** derive the sole destination
       from trusted `publicationRoot` and the fixed version/target/basename; there is
       no arbitrary pathname parameter. Before the one `link`, publisher-owned
       synchronous pure validation checks caller-supplied `privateRoot`, its
-      direct-child candidate directory, exact release-set temporary prefix plus
+      direct-child candidate directory, exact `releaseSetCandidatePrefix` plus
       nonempty suffix, fixed basename, and exact archive-path join; only then do
       private candidate `lstat`/read and `verifyReleaseSetArchive` run. Never read,
       inspect, or traverse destination. Cleanup is exactly
@@ -192,6 +204,8 @@ export function assertReproducibleReleaseSet(input: {
       to prove every invalid path relationship, a forged candidate attempting to
       choose its own root, or a mismatch against caller `privateRoot` makes no
       `lstat`, `readFile`, `removePrivateDirectory`, or `link` call. They also prove
+      wrong-prefix and empty-suffix candidates make no such call and use the
+      exported prefix constant rather than a duplicated literal. They also prove
       the sole link destination is exact, no arbitrary pathname input exists,
       `assertReproducibleReleaseSet` explicitly passes
       `releaseDependencies.temporaryRoot`, link is after both apps' two-build

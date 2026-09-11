@@ -164,8 +164,9 @@ release-set-manifest.json
 `release-set-manifest.json` is canonical two-space JSON plus LF with schema
 `mm-crypto-bot.release-set-manifest/v1`. It records common `commit`,
 `lockfileSha256`, `sourceDateEpoch`, `target`, `toolchain`, and `version`, plus
-exactly two app records. Each app record identifies its exact ZIP path and
-sidecar path and records `{bytes, sha256}` for both. It does not self-hash.
+exactly two app records in this canonical array order: `["bot",
+"config-search"]`. Each app record identifies its exact ZIP path and sidecar
+path and records `{bytes, sha256}` for both. It does not self-hash.
 
 The specialized set codec accepts only prevalidated in-memory regular inputs,
 uses STORE, and rejects malformed, duplicate, traversal, wrong name/order/mode,
@@ -176,11 +177,18 @@ spelling; verifies each existing inner archive via the current independent
 verifier; and requires common identity equality across the set and both inner
 manifests. No legacy public per-app layout remains as an alternative.
 
-The contract/codec is pure: `createReleaseSetManifest(inputs)` plus
-`encodeReleaseSetZip(inputs, sourceDateEpoch)` returns only
-`{ manifest, zipBytes }`. A separate injected private-candidate assembler first
-invokes the inner verifier, then creates the archive under a secure private
-directory and returns `{ archivePath, basename,
+The contract/codec is pure: `createReleaseSetManifest(inputs)` and
+`encodeReleaseSetZip(inputs, sourceDateEpoch)` each accept either input
+permutation only when it contains exactly one `bot` and one `config-search`,
+then deterministically reorder it to the canonical order above; equivalent
+permutations therefore produce byte-identical manifests and ZIPs. The verifier
+rejects a reversed or otherwise noncanonical manifest array. The only temporary
+directory prefix is the literal exported
+`releaseSetCandidatePrefix = "release-set-candidate-" as const`; the assembler,
+publisher-owned validation, and all positive and negative tests import that one
+constant. A separate injected private-candidate assembler first invokes the
+inner verifier, then uses `mkdtemp` with that prefix to create the archive under
+a secure private directory and returns `{ archivePath, basename,
 directory: ReleasePrivateDirectory, manifest }`, where `basename` is exactly
 `mm-crypto-bot-release-set-0.1.0-bun-linux-x64.zip`. The independent set
 verifier returns `VerifiedReleaseSetArchive` from `{ zipBytes }` and never uses
@@ -207,9 +215,10 @@ it cannot choose its own trust anchor. `publishReleaseSet` receives a separate,
 caller-supplied trusted `privateRoot` input. Before _any_ filesystem or
 publication-port call, publisher-owned pure validation requires that valid
 private root; a candidate directory that is its direct child; the exact
-release-set temporary-directory prefix followed by a nonempty suffix; the fixed
-basename; and an archive path exactly equal to that direct child's basename
-join. The publisher then uses its current restricted private-candidate
+`releaseSetCandidatePrefix` followed by a nonempty suffix; the fixed basename;
+and an archive path exactly equal to that direct child's basename join. An empty
+suffix or wrong prefix fails before every filesystem, cleanup, or link-port
+call. The publisher then uses its current restricted private-candidate
 filesystem capability for `lstat`/read and the independent set verifier
 validates the bytes. A malformed root/path relationship or a
 non-regular/symlink source is a no-link failure.
@@ -349,7 +358,10 @@ separate 100% unit and E2E coverage: the six release-set modules,
 `verify.ts`. Both the JSON summary and LCOV parser require strictly positive
 totals for every required source and metric before accepting 100% coverage.
 Tests include malformed/duplicate/traversal/wrong outer-entry cases;
-noncanonical manifest, digest, length, sidecar, mapping, and identity cases;
+equivalent input permutations producing identical outer bytes; reversed
+manifest-array rejection; noncanonical manifest, digest, length, sidecar,
+mapping, and identity cases; wrong-prefix and empty-suffix candidates rejected
+before every port call;
 link ordering and no-destination-inspection; public-input call ledgers proving
 invalid candidate paths make no filesystem/cleanup/link call; `EEXIST`
 sentinels, `EXDEV`, and redacted unknown failure; same-filesystem hard-link
