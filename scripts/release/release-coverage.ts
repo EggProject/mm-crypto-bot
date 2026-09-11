@@ -59,11 +59,28 @@ const unitSources = [
   "release-private-candidate-reproducibility.ts",
   "verify.ts",
   "release-coverage.ts",
+  "release-set-contract.ts",
+  "release-set-zip.ts",
+  "release-set-assembler.ts",
+  "release-set-verifier.ts",
+  "release-set-publication.ts",
+  "release-set-reproducibility.ts",
+  "release-ports.ts",
 ] as const;
 const e2eSources = [
   "release-assembler.ts",
   "release-smoke.ts",
   "release-private-candidate-reproducibility.ts",
+  "release-set-contract.ts",
+  "release-set-zip.ts",
+  "release-set-assembler.ts",
+  "release-set-verifier.ts",
+  "release-set-publication.ts",
+  "release-set-reproducibility.ts",
+  "release-ports.ts",
+  "release-coverage.ts",
+  "release-artifact-verifier.ts",
+  "verify.ts",
 ] as const;
 const { readFile } = await import("node:fs/promises");
 
@@ -241,26 +258,38 @@ function validateJsonSummary(
 function validateSummaryMetrics(value: unknown): void {
   if (!isRecord(value) || !hasRequiredEntries(value, metricNames))
     throw new Error("invalid coverage summary");
-  for (const metricName of metricNames) {
-    const metric = findEntry(value, metricName);
-    if (!isRecord(metric) || !hasRequiredEntries(metric, ["total", "covered", "pct"])) {
-      throw new Error("invalid coverage summary");
-    }
-    const total = findEntry(metric, "total");
-    const covered = findEntry(metric, "covered");
-    const pct = findEntry(metric, "pct");
-    if (
-      total !== covered ||
-      typeof pct !== "number" ||
-      pct !== 100 ||
-      !isSafeInteger(total) ||
-      !isSafeInteger(covered) ||
-      total < 0 ||
-      covered < 0
-    ) {
-      throw new Error("invalid coverage summary");
-    }
-  }
+  const statements = findEntry(value, "statements");
+  const branches = findEntry(value, "branches");
+  const functions = findEntry(value, "functions");
+  const lines = findEntry(value, "lines");
+  if (
+    !hasPositiveFullMetric(statements) ||
+    !hasCompleteBranchMetric(branches) ||
+    !hasPositiveFullMetric(functions) ||
+    !hasPositiveFullMetric(lines)
+  )
+    throw new Error("invalid coverage summary");
+}
+
+function hasPositiveFullMetric(metric: unknown): boolean {
+  return hasFullMetric(metric) && findEntry(metric, "total") !== 0;
+}
+
+function hasCompleteBranchMetric(metric: unknown): boolean {
+  return hasFullMetric(metric);
+}
+
+function hasFullMetric(metric: unknown): metric is Record<string, unknown> {
+  if (!isRecord(metric) || !hasRequiredEntries(metric, ["total", "covered", "pct"])) return false;
+  const total = findEntry(metric, "total");
+  const covered = findEntry(metric, "covered");
+  return (
+    total === covered &&
+    findEntry(metric, "pct") === 100 &&
+    isSafeInteger(total) &&
+    isSafeInteger(covered) &&
+    total >= 0
+  );
 }
 
 function validateLcov(lcovText: string, releaseDirectory: string, expectedSources: readonly string[]): void {
@@ -310,12 +339,20 @@ function hasLcovCounter(line: string, counters: Map<string, number>): boolean {
 
 function hasCompleteLcovCounters(counters: ReadonlyMap<string, number>): boolean {
   const required = ["LF", "LH", "FNF", "FNH", "BRF", "BRH"] as const;
+  const lines = counters.get("LF");
+  const functions = counters.get("FNF");
+  const branches = counters.get("BRF");
   return (
     counters.size === required.length &&
     required.every((counter) => counters.has(counter)) &&
     counters.get("LF") === counters.get("LH") &&
+    lines !== undefined &&
+    lines > 0 &&
     counters.get("FNF") === counters.get("FNH") &&
-    counters.get("BRF") === counters.get("BRH")
+    functions !== undefined &&
+    functions > 0 &&
+    counters.get("BRF") === counters.get("BRH") &&
+    branches !== undefined
   );
 }
 

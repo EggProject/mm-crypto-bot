@@ -1,3 +1,5 @@
+import { link as linkFile } from "node:fs/promises";
+
 import type { ReleaseTarget } from "./release-contract";
 
 export interface ReleaseCommandResult {
@@ -60,6 +62,24 @@ export type ReleasePathKind = "directory" | "missing" | "other" | "regular-file"
 export interface ReleasePrivateDirectory {
   readonly path: string;
 }
+
+/*
+ * Create-only public publication capability; it deliberately exposes no read or traversal operation.
+ */
+export interface ReleasePublicationFileSystemPort {
+  link(source: string, destination: string): Promise<void>;
+}
+
+function createReleasePublicationFileSystem(
+  link: ReleasePublicationFileSystemPort["link"],
+): ReleasePublicationFileSystemPort {
+  return Object.freeze({ link });
+}
+
+/*
+ * Node/Bun create-only publication adapter; link errors remain observable to the publisher.
+ */
+export const nodeReleasePublicationFileSystem = createReleasePublicationFileSystem(linkFile);
 
 export interface ReleaseDependencies {
   readonly compiler: ReleaseCompilerPort;

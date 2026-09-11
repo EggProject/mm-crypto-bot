@@ -45,13 +45,9 @@ const testRuntime: unknown = await import(typeof Bun === "undefined" ? "vitest" 
 if (!isTestRuntime(testRuntime)) {
   throw new Error("The selected test runtime does not expose the required API.");
 }
-const describe = (name: string, run: () => void): void => {
-  testRuntime.describe(name, run);
-};
-const expect = (actual: unknown): Expectation => testRuntime.expect(actual);
-const test = (name: string, run: () => void | Promise<void>): void => {
-  testRuntime.test(name, run);
-};
+const describe = testRuntime.describe.bind(testRuntime);
+const expect = testRuntime.expect.bind(testRuntime);
+const test = testRuntime.test.bind(testRuntime);
 const releaseDirectory = "/repo/scripts/release";
 const repoRoot = "/repo";
 const unitSources = [
@@ -65,11 +61,28 @@ const unitSources = [
   "release-private-candidate-reproducibility.ts",
   "verify.ts",
   "release-coverage.ts",
+  "release-set-contract.ts",
+  "release-set-zip.ts",
+  "release-set-assembler.ts",
+  "release-set-verifier.ts",
+  "release-set-publication.ts",
+  "release-set-reproducibility.ts",
+  "release-ports.ts",
 ] as const;
 const e2eSources = [
   "release-assembler.ts",
   "release-smoke.ts",
   "release-private-candidate-reproducibility.ts",
+  "release-set-contract.ts",
+  "release-set-zip.ts",
+  "release-set-assembler.ts",
+  "release-set-verifier.ts",
+  "release-set-publication.ts",
+  "release-set-reproducibility.ts",
+  "release-ports.ts",
+  "release-coverage.ts",
+  "release-artifact-verifier.ts",
+  "verify.ts",
 ] as const;
 const fullMetric = '{"total":1,"covered":1,"pct":100}';
 const fullSummaryMetrics = `{"statements":${fullMetric},"branches":${fullMetric},"functions":${fullMetric},"lines":${fullMetric}}`;
@@ -193,7 +206,6 @@ describe("release coverage argument parser", () => {
     expect(parseReleaseCoverageArguments(["--level=all"])).toBe("all");
   });
   test("rejects every malformed argument shape", () => {
-    // Catches accepting empty, duplicate, positional, unknown, malformed, or extra CLI arguments.
     for (const argv of [
       [],
       [undefined],
@@ -226,7 +238,6 @@ describe("release coverage orchestrator", () => {
     }
   });
   test("rejects invalid JavaScript levels before child or fixed report activity", async () => {
-    // Catches coercing or trusting the JavaScript boundary level.
     for (const level of ["UNIT", "", 0, undefined, {}, []]) {
       const current = fixture();
       await expect(runReleaseCoverage(level, current.dependencies)).rejects.toThrow(
@@ -237,7 +248,6 @@ describe("release coverage orchestrator", () => {
     }
   });
   test("stops before reports for throw, nonzero, signal, absent, and malformed child results", async () => {
-    // Catches trusting a failed child outcome before the coverage evidence exists.
     for (const outcome of [
       () => Promise.reject(new Error("hostile child failure")),
       () => Promise.resolve({ signal: undefined, status: 1 }),
@@ -253,14 +263,12 @@ describe("release coverage orchestrator", () => {
     }
   });
   test("stops all mode at the first invalid summary", async () => {
-    // Catches running E2E after unit report validation fails.
     const current = replaceReport(fixture(), "unitSummary", "not json");
     await expect(runReleaseCoverage("all", current.dependencies)).rejects.toThrow("release coverage failed");
     expect(current.calls).toHaveLength(1);
     expect(current.reads).toEqual(["unitSummary", "unitLcov"]);
   });
   test("rejects malformed, partial, foreign, duplicate, unsafe, and imperfect JSON summaries", async () => {
-    // Catches accepting incomplete or non-100 JSON S/B/F/L summary evidence.
     const complete = coverageSummary(unitSources);
     const requiredSource = `${releaseDirectory}/release-contract.ts`;
     const cases = [
@@ -287,7 +295,6 @@ describe("release coverage orchestrator", () => {
     }
   });
   test("accepts Vitest metadata outside the required S/B/F/L metrics", async () => {
-    // Catches rejecting generated skipped and branchesTrue metadata while checking required metrics.
     const summary = replaceText(
       coverageSummary(unitSources),
       fullSummaryMetrics,
@@ -296,7 +303,6 @@ describe("release coverage orchestrator", () => {
     await runReleaseCoverage("unit", replaceReport(fixture(), "unitSummary", summary).dependencies);
   });
   test("rejects malformed, foreign, duplicate, incomplete, and unequal LCOV counters", async () => {
-    // Catches accepting invalid source identity or incomplete L/F/B LCOV evidence.
     const complete = lcov(unitSources);
     for (const report of [
       `SF:release-contract.ts
@@ -327,7 +333,6 @@ SF:zip-store.ts
     }
   });
   test("accepts completed standard LCOV records with optional headers and details", async () => {
-    // Catches rejecting real Vitest formatting that retains complete aggregate counters.
     const report = lcov(unitSources)
       .trimEnd()
       .replaceAll("SF:", "TN:\nSF:")
@@ -336,7 +341,6 @@ SF:zip-store.ts
   });
 });
 test("release Vitest configs retain exact root reports, source scopes, reporters, and thresholds", async () => {
-  // Catches a report directory, reporter, source scope, or complete per-file threshold regression.
   const [unitModule, e2eModule] = await Promise.all([
     import("./vitest.config"),
     import("./vitest.e2e.config"),
@@ -372,7 +376,6 @@ test("release Vitest configs retain exact root reports, source scopes, reporters
   }
 });
 test("sanitizes Bun Node shim environment without reordering unaffected entries", () => {
-  // Catches retaining Node shim selectors or changing unrelated PATH segments.
   const environment = {
     NODE: "/bad/node",
     PATH: "/first:/tmp/bun-node-123:/second:/var/tmp/bun-node-xyz:/third",
@@ -386,7 +389,6 @@ test("sanitizes Bun Node shim environment without reordering unaffected entries"
   });
 });
 test("Node adapter uses fixed report readers, sanitized environment, and a no-shell child port", async () => {
-  // Catches a generic report reader, unsanitized Node shim environment, or shell child adapter.
   const child = new TestChild();
   const childPort = createNodeReleaseCoverageChildPort(() => child);
   const dependencies = createNodeReleaseCoverageDependencies(
@@ -432,7 +434,6 @@ async function invokeReader(reader: () => Promise<string>): Promise<void> {
   }
 }
 test("release coverage child adapter preserves unsuccessful statuses for the orchestrator", async () => {
-  // Catches normalizing a nonzero child exit into a successful result.
   const child = new TestChild();
   const childPort = createNodeReleaseCoverageChildPort(() => child);
   const result = childPort({ argv: ["node"], cwd: repoRoot, env: {} });
@@ -443,7 +444,6 @@ test("release coverage child adapter preserves unsuccessful statuses for the orc
   });
 });
 test("release coverage command factory runs the real parser and orchestrator", async () => {
-  // Catches bypassing argument validation in the executable command adapter.
   const current = fixture();
   await createReleaseCoverageCommand(["--level=unit"], current.dependencies)();
   expect(current.calls).toHaveLength(1);
@@ -476,7 +476,6 @@ describe("release coverage CLI adapter", () => {
     ).toBe(0);
   });
   test("redacts Error and non-Error executable failures", async () => {
-    // Catches exposing child paths, stacks, and caught values through CLI stderr.
     for (const runCommand of [
       () => Promise.reject(new Error("/hostile/private/path")),
       throwNonErrorFailure,

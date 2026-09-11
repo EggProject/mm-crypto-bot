@@ -1,3 +1,4 @@
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -47,7 +48,7 @@ process.exitCode = await runReleaseVerifyEntrypoint({
   runCommand: runReleaseVerifyCli.bind(
     undefined,
     process.argv.slice(2),
-    { fileSystem: nodeReleaseArtifactReadPort, repositoryRoot: repoRoot },
+    { fileSystem: nodeReleaseArtifactReadPort, repositoryRoot: path.join(repoRoot, "releases") },
     output,
   ),
 });
