@@ -3,6 +3,7 @@
  */
 
 import ccxt, { type Exchange as CcxtExchange } from "ccxt";
+import { setTimeout as wait } from "node:timers/promises";
 
 import {
   DEFAULT_LATENCY_MONITOR_CONFIG,
@@ -11,6 +12,7 @@ import {
   type LatencyMonitorResult,
   type LatencySample,
   type LatencyStats,
+  type LatencyMonitorTimePort,
   type RttSample,
   type SupportedExchangeId,
 } from "./latency-monitor.contract.js";
@@ -21,6 +23,7 @@ export {
   isSupportedExchangeId,
   type LatencyMonitorConfig,
   type LatencyMonitorResult,
+  type LatencyMonitorTimePort,
   type LatencySample,
   type LatencyStats,
   type MessageGapSample,
@@ -29,6 +32,11 @@ export {
   type SupportedExchangeId,
 } from "./latency-monitor.contract.js";
 export { aggregateStats, median, percentile, round2 } from "./latency-monitor-statistics.js";
+
+const DEFAULT_TIME_PORT: LatencyMonitorTimePort = Object.freeze({
+  now: Date.now,
+  wait,
+});
 
 class StatsByExchangeAccumulator implements Record<SupportedExchangeId, LatencyStats> {
   declare binance: LatencyStats;
@@ -89,8 +97,13 @@ function createCcxtExchange(exchangeId: string, options: Record<string, unknown>
 
 export class LatencyMonitor {
   private readonly defaultConfig: LatencyMonitorDefaults = DEFAULT_LATENCY_MONITOR_CONFIG;
+  private readonly time: LatencyMonitorTimePort;
   private cancelled = false;
   private activeExchange: CcxtExchange | undefined;
+
+  constructor(time: LatencyMonitorTimePort = DEFAULT_TIME_PORT) {
+    this.time = time;
+  }
 
   private async measureOrEmpty(
     exchangeId: SupportedExchangeId,
@@ -111,9 +124,9 @@ export class LatencyMonitor {
     rttIntervalMs: number,
   ): Promise<RttSample[]> {
     const samples: RttSample[] = [];
-    const endTime = Date.now() + durationMs;
-    while (Date.now() < endTime && !this.cancelled) {
-      const timestamp = Date.now();
+    const endTime = this.time.now() + durationMs;
+    while (this.time.now() < endTime && !this.cancelled) {
+      const timestamp = this.time.now();
       let isSuccessful: boolean;
       try {
         await exchange.fetchTicker(symbol);
@@ -124,12 +137,12 @@ export class LatencyMonitor {
       samples.push({
         exchangeId,
         timestamp,
-        rttMs: Date.now() - timestamp,
+        rttMs: this.time.now() - timestamp,
         method: "rest",
         success: isSuccessful,
       });
-      const remaining = timestamp + rttIntervalMs - Date.now();
-      if (remaining > 0) await sleep(Math.min(remaining, endTime - Date.now()));
+      const remaining = timestamp + rttIntervalMs - this.time.now();
+      if (remaining > 0) await this.time.wait(Math.min(remaining, endTime - this.time.now()));
     }
     return samples;
   }
@@ -146,17 +159,17 @@ export class LatencyMonitor {
     let lastMessageAt: number | undefined;
     let reconnectStartAt: number | undefined;
     let messagesSinceConnect = 0;
-    const startTime = Date.now();
+    const startTime = this.time.now();
     const endTime = startTime + durationMs;
-    while (Date.now() < endTime && messagesSinceConnect < wsMessageBudget && !this.cancelled) {
+    while (this.time.now() < endTime && messagesSinceConnect < wsMessageBudget && !this.cancelled) {
       const shouldReconnect =
         reconnectStartAt === undefined &&
         forcedDisconnectAtMs !== Infinity &&
-        Date.now() - startTime >= forcedDisconnectAtMs;
+        this.time.now() - startTime >= forcedDisconnectAtMs;
       if (shouldReconnect) {
-        reconnectStartAt = Date.now();
+        reconnectStartAt = this.time.now();
         await closeQuietly(exchange);
-        await sleep(200);
+        await this.time.wait(200);
         try {
           await exchange.loadMarkets();
         } catch {
@@ -166,7 +179,7 @@ export class LatencyMonitor {
       }
       try {
         await exchange.watchOrderBook(symbol, 50);
-        const timestamp = Date.now();
+        const timestamp = this.time.now();
         messagesSinceConnect += 1;
         if (lastMessageAt !== undefined)
           samples.push({
@@ -184,7 +197,7 @@ export class LatencyMonitor {
             disconnectAt: reconnectStartAt,
           });
       } catch {
-        await sleep(50);
+        await this.time.wait(50);
       }
     }
     await closeQuietly(exchange);
@@ -247,7 +260,7 @@ export class LatencyMonitor {
   }
 
   async start(config: LatencyMonitorConfig): Promise<LatencyMonitorResult> {
-    const startedAt = Date.now();
+    const startedAt = this.time.now();
     const exchangeIds = config.exchangeIds;
     const effectiveConfig = {
       symbol: config.symbol ?? this.defaultConfig.symbol,
@@ -272,7 +285,7 @@ export class LatencyMonitor {
     return {
       config: { ...effectiveConfig, exchangeIds },
       startedAt,
-      endedAt: Date.now(),
+      endedAt: this.time.now(),
       statsByExchange: statsByExchange.snapshot(),
       samples: allSamples,
     };
@@ -309,8 +322,4 @@ async function closeQuietly(exchange: CcxtExchange): Promise<void> {
   } catch {
     // Cleanup remains best effort because a connection may already be closed.
   }
-}
-
-function sleep(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, Math.max(0, milliseconds)));
 }

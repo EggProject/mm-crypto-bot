@@ -81,6 +81,17 @@ export interface LatencyMonitorDefaults {
   readonly forcedDisconnectAtMs: number;
 }
 
+/**
+ * Wall-clock dependency used by latency-monitor lifecycle measurements.
+ *
+ * Production uses the system clock and timer; callers may provide another
+ * implementation when the surrounding runtime supplies its own scheduler.
+ */
+export interface LatencyMonitorTimePort {
+  readonly now: () => number;
+  readonly wait: (milliseconds: number) => Promise<void>;
+}
+
 export const DEFAULT_LATENCY_MONITOR_CONFIG: LatencyMonitorDefaults = Object.freeze({
   symbol: "BTC/USDT",
   durationMs: 30_000,

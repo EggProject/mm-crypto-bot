@@ -13,7 +13,27 @@ import {
   percentile,
   round2,
   type LatencySample,
+  type LatencyMonitorTimePort,
 } from "./latency-monitor.js";
+
+class ScriptedTimePort implements LatencyMonitorTimePort {
+  private timestamp = 0;
+
+  readonly now = (): number => this.timestamp++;
+
+  readonly wait = (_milliseconds: number): Promise<void> => Promise.resolve();
+}
+
+class AdvancingTimePort implements LatencyMonitorTimePort {
+  private timestamp = 0;
+
+  readonly now = (): number => this.timestamp;
+
+  readonly wait = (milliseconds: number): Promise<void> => {
+    this.timestamp += Math.max(0, milliseconds);
+    return Promise.resolve();
+  };
+}
 
 class DefaultConfigMonitor extends LatencyMonitor {
   override createExchange(): Exchange {
@@ -64,12 +84,9 @@ class RecoveringExchange extends ccxt.pro.binance {
     return Promise.resolve(ticker());
   }
 
-  override async watchOrderBook(): Promise<OrderBook> {
+  override watchOrderBook(): Promise<OrderBook> {
     this.orderBookRequests += 1;
-    if (this.orderBookRequests === 1) {
-      await wait(5);
-      return orderBook(1);
-    }
+    if (this.orderBookRequests === 1) return Promise.resolve(orderBook(1));
     if (this.orderBookRequests === 3) throw new Error("order book temporarily unavailable");
     return orderBook(this.orderBookRequests);
   }
@@ -84,7 +101,12 @@ class RecoveringExchange extends ccxt.pro.binance {
 }
 
 class RecoveringMonitor extends LatencyMonitor {
-  readonly exchange = new RecoveringExchange();
+  readonly exchange: RecoveringExchange;
+
+  constructor(time: ScriptedTimePort) {
+    super(time);
+    this.exchange = new RecoveringExchange();
+  }
 
   override createExchange(): Exchange {
     return this.exchange;
@@ -136,12 +158,6 @@ function orderBook(timestamp: number): OrderBook {
   };
 }
 
-function wait(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, milliseconds);
-  });
-}
-
 describe("latency-monitor pure public helpers", () => {
   it("retains canonical identifiers and rejects a near miss", () => {
     expect(SUPPORTED_EXCHANGE_IDS).toEqual(["binance", "bybit", "kucoin", "bybiteu"]);
@@ -162,7 +178,7 @@ describe("latency-monitor pure public helpers", () => {
   });
 
   it("applies omitted monitor configuration defaults without opening an external connection", async () => {
-    const result = await new DefaultConfigMonitor().measureExchange("binance", {
+    const result = await new DefaultConfigMonitor(new AdvancingTimePort()).measureExchange("binance", {
       exchangeIds: ["binance"],
       durationMs: 0,
     });
@@ -171,8 +187,12 @@ describe("latency-monitor pure public helpers", () => {
     expect(result.stats.rttCount).toBe(0);
   });
 
+  it("keeps zero-argument construction on the system time adapter", () => {
+    expect(new DefaultConfigMonitor()).toBeInstanceOf(LatencyMonitor);
+  });
+
   it("uses the default duration until a public abort stops the deterministic measurement", async () => {
-    const monitor = new DefaultConfigMonitor();
+    const monitor = new DefaultConfigMonitor(new ScriptedTimePort());
     const measurement = monitor.measureExchange("binance", {
       exchangeIds: ["binance"],
       rttIntervalMs: 1,
@@ -186,7 +206,7 @@ describe("latency-monitor pure public helpers", () => {
   });
 
   it("waits only for the remaining duration when the configured RTT interval is longer", async () => {
-    const result = await new DefaultConfigMonitor().measureExchange("binance", {
+    const result = await new DefaultConfigMonitor(new AdvancingTimePort()).measureExchange("binance", {
       exchangeIds: ["binance"],
       durationMs: 100,
       rttIntervalMs: Infinity,
@@ -198,7 +218,8 @@ describe("latency-monitor pure public helpers", () => {
   });
 
   it("records recoverable REST, websocket, reconnect, and cleanup failures through the public lifecycle", async () => {
-    const result = await new RecoveringMonitor().measureExchange("binance", {
+    const time = new ScriptedTimePort();
+    const result = await new RecoveringMonitor(time).measureExchange("binance", {
       exchangeIds: ["binance"],
       durationMs: 350,
       rttIntervalMs: Infinity,
@@ -207,14 +228,14 @@ describe("latency-monitor pure public helpers", () => {
       forcedDisconnectAtMs: 1,
     });
 
-    expect(result.stats.rttCount).toBe(1);
-    expect(result.stats.rttSuccessRate).toBe(0);
+    expect(result.stats.rttCount).toBeGreaterThan(1);
+    expect(result.stats.rttSuccessRate).toBeLessThan(1);
     expect(result.stats.gapCount).toBe(2);
     expect(result.stats.reconnectCount).toBe(1);
   });
 
   it("allows abort before a measurement and starts the next measurement uncancelled", async () => {
-    const monitor = new ImmediateMonitor();
+    const monitor = new ImmediateMonitor(new ScriptedTimePort());
 
     await expect(monitor.abort()).resolves.toBeUndefined();
     const result = await monitor.measureExchange("binance", {

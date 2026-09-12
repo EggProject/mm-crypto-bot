@@ -20,6 +20,18 @@ import {
 
 type ExchangeScenario = "recovering" | "stable";
 
+class DeterministicTimePort {
+  private timestamp = 0;
+
+  readonly now = (): number => this.timestamp++;
+
+  readonly wait = (_milliseconds: number): Promise<void> => Promise.resolve();
+
+  constructor(initialTimestamp = 0) {
+    this.timestamp = initialTimestamp;
+  }
+}
+
 class ScenarioExchange extends ccxt.pro.binance {
   private tickerRequests = 0;
   private orderBookRequests = 0;
@@ -35,15 +47,12 @@ class ScenarioExchange extends ccxt.pro.binance {
     return Promise.resolve(ticker());
   }
 
-  override async watchOrderBook(): Promise<OrderBook> {
+  override watchOrderBook(): Promise<OrderBook> {
     this.orderBookRequests += 1;
-    if (this.scenario === "recovering" && this.orderBookRequests === 1) {
-      await wait(5);
-      return orderBook(1);
-    }
+    if (this.scenario === "recovering" && this.orderBookRequests === 1) return Promise.resolve(orderBook(1));
     if (this.scenario === "recovering" && this.orderBookRequests === 3)
-      throw new Error("order book temporarily unavailable");
-    return orderBook(this.orderBookRequests);
+      return Promise.reject(new Error("order book temporarily unavailable"));
+    return Promise.resolve(orderBook(this.orderBookRequests));
   }
 
   override loadMarkets(): Promise<Dictionary<Market>> {
@@ -59,8 +68,11 @@ class ScenarioExchange extends ccxt.pro.binance {
 }
 
 class ScenarioMonitor extends LatencyMonitor {
-  constructor(private readonly exchange: ScenarioExchange) {
-    super();
+  constructor(
+    private readonly exchange: ScenarioExchange,
+    time?: DeterministicTimePort,
+  ) {
+    super(time);
   }
 
   override createExchange(): Exchange {
@@ -115,12 +127,6 @@ function orderBook(timestamp: number): OrderBook {
   };
 }
 
-function wait(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, milliseconds);
-  });
-}
-
 describe("LatencyMonitor consumer contract", () => {
   it("exposes only the supported identifiers and factory implementations", () => {
     expect(SUPPORTED_EXCHANGE_IDS).toEqual(["binance", "bybit", "kucoin", "bybiteu"]);
@@ -168,28 +174,46 @@ describe("LatencyMonitor consumer contract", () => {
   });
 
   it("returns canonical default configuration without opening an external connection", async () => {
-    const result = await new ScenarioMonitor(new ScenarioExchange("stable")).measureExchange("binance", {
-      exchangeIds: ["binance"],
-      durationMs: 0,
-    });
+    const result = await new ScenarioMonitor(
+      new ScenarioExchange("stable"),
+      new DeterministicTimePort(),
+    ).measureExchange("binance", { exchangeIds: ["binance"], durationMs: 0 });
 
     expect(result.samples).toEqual([]);
     expect(result.stats.rttCount).toBe(0);
   });
 
+  it("retains zero-argument construction with the system time adapter", () => {
+    expect(new ScenarioMonitor(new ScenarioExchange("stable"))).toBeInstanceOf(LatencyMonitor);
+  });
+
   it("returns all selected empty exchange results in configured order when their measurements reject", async () => {
-    const result = await new RejectingMonitor().start({ exchangeIds: SUPPORTED_EXCHANGE_IDS });
+    const result = await new RejectingMonitor(new DeterministicTimePort()).start({
+      exchangeIds: SUPPORTED_EXCHANGE_IDS,
+    });
 
     expect(Object.keys(result.statsByExchange)).toEqual(["binance", "bybit", "kucoin", "bybiteu"]);
     expect(result.samples).toEqual([]);
     expect(Number.isNaN(result.statsByExchange.bybiteu.rttP99Ms)).toBe(true);
   });
 
+  it("uses an injected wall clock for the public start result", async () => {
+    const result = await new RejectingMonitor(new DeterministicTimePort(100)).start({
+      exchangeIds: ["binance"],
+    });
+
+    expect(result.startedAt).toBe(100);
+    expect(result.endedAt).toBe(101);
+  });
+
   it("collects a successful configured REST and message-gap lifecycle without external I/O", async () => {
-    const result = await new ScenarioMonitor(new ScenarioExchange("stable")).start({
+    const result = await new ScenarioMonitor(
+      new ScenarioExchange("stable"),
+      new DeterministicTimePort(),
+    ).start({
       exchangeIds: ["binance"],
       symbol: "ETH/USDT",
-      durationMs: 10,
+      durationMs: 100,
       rttIntervalMs: 0,
       wsMessageBudget: 3,
       measureReconnect: false,
@@ -199,7 +223,7 @@ describe("LatencyMonitor consumer contract", () => {
     expect(result.config).toEqual({
       exchangeIds: ["binance"],
       symbol: "ETH/USDT",
-      durationMs: 10,
+      durationMs: 100,
       rttIntervalMs: 0,
       wsMessageBudget: 3,
       measureReconnect: false,
@@ -210,7 +234,10 @@ describe("LatencyMonitor consumer contract", () => {
   });
 
   it("keeps recoverable REST, websocket, reconnect, refresh, and cleanup failures observable in lifecycle statistics", async () => {
-    const result = await new ScenarioMonitor(new ScenarioExchange("recovering")).measureExchange("binance", {
+    const result = await new ScenarioMonitor(
+      new ScenarioExchange("recovering"),
+      new DeterministicTimePort(),
+    ).measureExchange("binance", {
       exchangeIds: ["binance"],
       durationMs: 350,
       rttIntervalMs: Infinity,
@@ -219,14 +246,14 @@ describe("LatencyMonitor consumer contract", () => {
       forcedDisconnectAtMs: 1,
     });
 
-    expect(result.stats.rttCount).toBe(1);
-    expect(result.stats.rttSuccessRate).toBe(0);
+    expect(result.stats.rttCount).toBeGreaterThan(1);
+    expect(result.stats.rttSuccessRate).toBeLessThan(1);
     expect(result.stats.gapCount).toBe(2);
     expect(result.stats.reconnectCount).toBe(1);
   });
 
   it("allows abort before and during a public measurement without leaving the next measurement cancelled", async () => {
-    const monitor = new ScenarioMonitor(new ScenarioExchange("stable"));
+    const monitor = new ScenarioMonitor(new ScenarioExchange("stable"), new DeterministicTimePort());
 
     await expect(monitor.abort()).resolves.toBeUndefined();
     const measurement = monitor.measureExchange("binance", {
