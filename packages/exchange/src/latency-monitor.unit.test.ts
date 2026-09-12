@@ -17,9 +17,12 @@ import {
 } from "./latency-monitor.js";
 
 class ScriptedTimePort implements LatencyMonitorTimePort {
-  private timestamp = 0;
+  private monotonicTimestamp = 0;
+  private utcTimestamp = 0;
 
-  readonly now = (): number => this.timestamp++;
+  readonly utcNow = (): number => this.utcTimestamp++;
+
+  readonly monotonicNow = (): number => this.monotonicTimestamp++;
 
   readonly wait = (_milliseconds: number): Promise<void> => Promise.resolve();
 }
@@ -27,12 +30,56 @@ class ScriptedTimePort implements LatencyMonitorTimePort {
 class AdvancingTimePort implements LatencyMonitorTimePort {
   private timestamp = 0;
 
-  readonly now = (): number => this.timestamp;
+  readonly utcNow = (): number => this.timestamp;
+
+  readonly monotonicNow = (): number => this.timestamp;
 
   readonly wait = (milliseconds: number): Promise<void> => {
     this.timestamp += Math.max(0, milliseconds);
     return Promise.resolve();
   };
+}
+
+class LifecycleTimePort implements LatencyMonitorTimePort {
+  private fallbackMonotonicTimestamp = 0;
+  private monotonicIndex = 0;
+  private utcIndex = 0;
+  readonly waits: number[] = [];
+
+  readonly utcNow = (): number =>
+    this.utcReadings[Math.min(this.utcIndex++, this.utcReadings.length - 1)] ?? 0;
+
+  readonly monotonicNow = (): number => {
+    const reading = this.monotonicReadings[this.monotonicIndex++];
+    return reading ?? this.fallbackMonotonicTimestamp++;
+  };
+
+  readonly wait = (milliseconds: number): Promise<void> => {
+    this.waits.push(milliseconds);
+    return Promise.resolve();
+  };
+
+  constructor(
+    private readonly utcReadings: readonly number[],
+    private readonly monotonicReadings: readonly number[] = [],
+  ) {}
+}
+
+class ReceiverTimePort implements LatencyMonitorTimePort {
+  private monotonicTimestamp = 0;
+  private utcTimestamp = 0;
+
+  utcNow(): number {
+    return this.utcTimestamp++;
+  }
+
+  monotonicNow(): number {
+    return this.monotonicTimestamp++;
+  }
+
+  wait(_milliseconds: number): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 class DefaultConfigMonitor extends LatencyMonitor {
@@ -103,7 +150,7 @@ class RecoveringExchange extends ccxt.pro.binance {
 class RecoveringMonitor extends LatencyMonitor {
   readonly exchange: RecoveringExchange;
 
-  constructor(time: ScriptedTimePort) {
+  constructor(time: LatencyMonitorTimePort) {
     super(time);
     this.exchange = new RecoveringExchange();
   }
@@ -189,6 +236,99 @@ describe("latency-monitor pure public helpers", () => {
 
   it("keeps zero-argument construction on the system time adapter", () => {
     expect(new DefaultConfigMonitor()).toBeInstanceOf(LatencyMonitor);
+  });
+
+  it("preserves a method-based monotonic time port receiver through the public lifecycle", async () => {
+    const result = await new DefaultConfigMonitor(new ReceiverTimePort()).start({
+      exchangeIds: ["binance"],
+      durationMs: 100,
+      rttIntervalMs: Infinity,
+      wsMessageBudget: 0,
+      measureReconnect: false,
+    });
+
+    expect(result.statsByExchange.binance.rttCount).toBeGreaterThan(0);
+  });
+
+  it("never passes a negative wait to the public lifecycle after its RTT deadline expires", async () => {
+    const time = new LifecycleTimePort([0], [0, 1, 2, 3, 4, 11, 12, 13, 14]);
+
+    await new DefaultConfigMonitor(time).start({
+      exchangeIds: ["binance"],
+      durationMs: 10,
+      rttIntervalMs: 100,
+      wsMessageBudget: 0,
+      measureReconnect: false,
+    });
+
+    expect(time.waits).toEqual([0]);
+  });
+
+  it("keeps elapsed lifecycle measurements monotonic when UTC wall time moves backward", async () => {
+    const result = await new RecoveringMonitor(new LifecycleTimePort([1000, 10])).start({
+      exchangeIds: ["binance"],
+      durationMs: 350,
+      rttIntervalMs: Infinity,
+      wsMessageBudget: 3,
+      measureReconnect: true,
+      forcedDisconnectAtMs: 1,
+    });
+
+    expect(result.startedAt).toBe(1000);
+    expect(result.endedAt).toBe(10);
+    expect(result.statsByExchange.binance.rttMinMs).toBeGreaterThanOrEqual(0);
+    expect(result.statsByExchange.binance.gapMinMs).toBeGreaterThanOrEqual(0);
+    expect(result.statsByExchange.binance.reconnectMinMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("keeps elapsed lifecycle measurements monotonic when UTC wall time moves forward", async () => {
+    const result = await new RecoveringMonitor(new LifecycleTimePort([10, 1000])).start({
+      exchangeIds: ["binance"],
+      durationMs: 350,
+      rttIntervalMs: Infinity,
+      wsMessageBudget: 3,
+      measureReconnect: true,
+      forcedDisconnectAtMs: 1,
+    });
+
+    expect(result.startedAt).toBe(10);
+    expect(result.endedAt).toBe(1000);
+    expect(result.statsByExchange.binance.rttMinMs).toBeGreaterThanOrEqual(0);
+    expect(result.statsByExchange.binance.gapMinMs).toBeGreaterThanOrEqual(0);
+    expect(result.statsByExchange.binance.reconnectMinMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("fails closed when a public lifecycle reads an invalid monotonic value", async () => {
+    await expect(
+      new DefaultConfigMonitor(new LifecycleTimePort([1000], [NaN])).start({
+        exchangeIds: ["binance"],
+        durationMs: 100,
+        wsMessageBudget: 0,
+        measureReconnect: false,
+      }),
+    ).rejects.toThrow("Érvénytelen monotón időérték.");
+  });
+
+  it("fails closed when a public lifecycle reads a negative monotonic value", async () => {
+    await expect(
+      new DefaultConfigMonitor(new LifecycleTimePort([1000], [-1])).start({
+        exchangeIds: ["binance"],
+        durationMs: 100,
+        wsMessageBudget: 0,
+        measureReconnect: false,
+      }),
+    ).rejects.toThrow("Érvénytelen monotón időérték.");
+  });
+
+  it("fails closed when a public lifecycle reads a backward monotonic value", async () => {
+    await expect(
+      new DefaultConfigMonitor(new LifecycleTimePort([1000], [10, 9])).start({
+        exchangeIds: ["binance"],
+        durationMs: 100,
+        wsMessageBudget: 0,
+        measureReconnect: false,
+      }),
+    ).rejects.toThrow("Érvénytelen monotón időérték.");
   });
 
   it("uses the default duration until a public abort stops the deterministic measurement", async () => {

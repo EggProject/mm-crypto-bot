@@ -14,6 +14,7 @@ import {
   percentile,
   round2,
   type LatencyMonitorConfig,
+  type LatencyMonitorTimePort,
   type LatencySample,
   type SupportedExchangeId,
 } from "./latency-monitor.js";
@@ -21,14 +22,59 @@ import {
 type ExchangeScenario = "recovering" | "stable";
 
 class DeterministicTimePort {
-  private timestamp = 0;
+  private monotonicTimestamp = 0;
+  private utcTimestamp = 0;
 
-  readonly now = (): number => this.timestamp++;
+  readonly utcNow = (): number => this.utcTimestamp++;
+
+  readonly monotonicNow = (): number => this.monotonicTimestamp++;
 
   readonly wait = (_milliseconds: number): Promise<void> => Promise.resolve();
 
   constructor(initialTimestamp = 0) {
-    this.timestamp = initialTimestamp;
+    this.utcTimestamp = initialTimestamp;
+  }
+}
+
+class LifecycleTimePort implements LatencyMonitorTimePort {
+  private fallbackMonotonicTimestamp = 0;
+  private monotonicIndex = 0;
+  private utcIndex = 0;
+  readonly waits: number[] = [];
+
+  readonly utcNow = (): number =>
+    this.utcReadings[Math.min(this.utcIndex++, this.utcReadings.length - 1)] ?? 0;
+
+  readonly monotonicNow = (): number => {
+    const reading = this.monotonicReadings[this.monotonicIndex++];
+    return reading ?? this.fallbackMonotonicTimestamp++;
+  };
+
+  readonly wait = (milliseconds: number): Promise<void> => {
+    this.waits.push(milliseconds);
+    return Promise.resolve();
+  };
+
+  constructor(
+    private readonly utcReadings: readonly number[],
+    private readonly monotonicReadings: readonly number[] = [],
+  ) {}
+}
+
+class ReceiverTimePort implements LatencyMonitorTimePort {
+  private monotonicTimestamp = 0;
+  private utcTimestamp = 0;
+
+  utcNow(): number {
+    return this.utcTimestamp++;
+  }
+
+  monotonicNow(): number {
+    return this.monotonicTimestamp++;
+  }
+
+  wait(_milliseconds: number): Promise<void> {
+    return Promise.resolve();
   }
 }
 
@@ -70,7 +116,7 @@ class ScenarioExchange extends ccxt.pro.binance {
 class ScenarioMonitor extends LatencyMonitor {
   constructor(
     private readonly exchange: ScenarioExchange,
-    time?: DeterministicTimePort,
+    time?: LatencyMonitorTimePort,
   ) {
     super(time);
   }
@@ -185,6 +231,105 @@ describe("LatencyMonitor consumer contract", () => {
 
   it("retains zero-argument construction with the system time adapter", () => {
     expect(new ScenarioMonitor(new ScenarioExchange("stable"))).toBeInstanceOf(LatencyMonitor);
+  });
+
+  it("preserves a method-based monotonic time port receiver through the consumer lifecycle", async () => {
+    const result = await new ScenarioMonitor(new ScenarioExchange("stable"), new ReceiverTimePort()).start({
+      exchangeIds: ["binance"],
+      durationMs: 100,
+      rttIntervalMs: Infinity,
+      wsMessageBudget: 0,
+      measureReconnect: false,
+    });
+
+    expect(result.statsByExchange.binance.rttCount).toBeGreaterThan(0);
+  });
+
+  it("never passes a negative wait to a consumer lifecycle after its RTT deadline expires", async () => {
+    const time = new LifecycleTimePort([0], [0, 1, 2, 3, 4, 11, 12, 13, 14]);
+
+    await new ScenarioMonitor(new ScenarioExchange("stable"), time).start({
+      exchangeIds: ["binance"],
+      durationMs: 10,
+      rttIntervalMs: 100,
+      wsMessageBudget: 0,
+      measureReconnect: false,
+    });
+
+    expect(time.waits).toEqual([0]);
+  });
+
+  it("keeps consumer lifecycle elapsed measurements monotonic when UTC wall time moves backward", async () => {
+    const result = await new ScenarioMonitor(
+      new ScenarioExchange("recovering"),
+      new LifecycleTimePort([1000, 10]),
+    ).start({
+      exchangeIds: ["binance"],
+      durationMs: 350,
+      rttIntervalMs: Infinity,
+      wsMessageBudget: 3,
+      measureReconnect: true,
+      forcedDisconnectAtMs: 1,
+    });
+
+    expect(result.startedAt).toBe(1000);
+    expect(result.endedAt).toBe(10);
+    expect(result.statsByExchange.binance.rttMinMs).toBeGreaterThanOrEqual(0);
+    expect(result.statsByExchange.binance.gapMinMs).toBeGreaterThanOrEqual(0);
+    expect(result.statsByExchange.binance.reconnectMinMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("keeps consumer lifecycle elapsed measurements monotonic when UTC wall time moves forward", async () => {
+    const result = await new ScenarioMonitor(
+      new ScenarioExchange("recovering"),
+      new LifecycleTimePort([10, 1000]),
+    ).start({
+      exchangeIds: ["binance"],
+      durationMs: 350,
+      rttIntervalMs: Infinity,
+      wsMessageBudget: 3,
+      measureReconnect: true,
+      forcedDisconnectAtMs: 1,
+    });
+
+    expect(result.startedAt).toBe(10);
+    expect(result.endedAt).toBe(1000);
+    expect(result.statsByExchange.binance.rttMinMs).toBeGreaterThanOrEqual(0);
+    expect(result.statsByExchange.binance.gapMinMs).toBeGreaterThanOrEqual(0);
+    expect(result.statsByExchange.binance.reconnectMinMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("fails closed for a consumer lifecycle with an invalid monotonic value", async () => {
+    await expect(
+      new ScenarioMonitor(new ScenarioExchange("stable"), new LifecycleTimePort([1000], [NaN])).start({
+        exchangeIds: ["binance"],
+        durationMs: 100,
+        wsMessageBudget: 0,
+        measureReconnect: false,
+      }),
+    ).rejects.toThrow("Érvénytelen monotón időérték.");
+  });
+
+  it("fails closed for a consumer lifecycle with a negative monotonic value", async () => {
+    await expect(
+      new ScenarioMonitor(new ScenarioExchange("stable"), new LifecycleTimePort([1000], [-1])).start({
+        exchangeIds: ["binance"],
+        durationMs: 100,
+        wsMessageBudget: 0,
+        measureReconnect: false,
+      }),
+    ).rejects.toThrow("Érvénytelen monotón időérték.");
+  });
+
+  it("fails closed for a consumer lifecycle with a backward monotonic value", async () => {
+    await expect(
+      new ScenarioMonitor(new ScenarioExchange("stable"), new LifecycleTimePort([1000], [10, 9])).start({
+        exchangeIds: ["binance"],
+        durationMs: 100,
+        wsMessageBudget: 0,
+        measureReconnect: false,
+      }),
+    ).rejects.toThrow("Érvénytelen monotón időérték.");
   });
 
   it("returns all selected empty exchange results in configured order when their measurements reject", async () => {

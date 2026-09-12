@@ -3,6 +3,7 @@
  */
 
 import ccxt, { type Exchange as CcxtExchange } from "ccxt";
+import { performance } from "node:perf_hooks";
 import { setTimeout as wait } from "node:timers/promises";
 
 import {
@@ -34,9 +35,32 @@ export {
 export { aggregateStats, median, percentile, round2 } from "./latency-monitor-statistics.js";
 
 const DEFAULT_TIME_PORT: LatencyMonitorTimePort = Object.freeze({
-  now: Date.now,
+  utcNow: Date.now,
+  monotonicNow: performance.now.bind(performance),
   wait,
 });
+
+const INVALID_MONOTONIC_TIME_ERROR = "Érvénytelen monotón időérték.";
+
+class InvalidMonotonicTimeError extends Error {
+  constructor() {
+    super(INVALID_MONOTONIC_TIME_ERROR);
+  }
+}
+
+class MonotonicClock {
+  private previous: number | undefined;
+
+  constructor(private readonly source: Pick<LatencyMonitorTimePort, "monotonicNow">) {}
+
+  read(): number {
+    const current = this.source.monotonicNow();
+    if (!Number.isFinite(current) || current < 0 || (this.previous !== undefined && current < this.previous))
+      throw new InvalidMonotonicTimeError();
+    this.previous = current;
+    return current;
+  }
+}
 
 class StatsByExchangeAccumulator implements Record<SupportedExchangeId, LatencyStats> {
   declare binance: LatencyStats;
@@ -111,7 +135,8 @@ export class LatencyMonitor {
   ): Promise<{ samples: LatencySample[]; stats: LatencyStats }> {
     try {
       return await this.measureExchange(exchangeId, config);
-    } catch {
+    } catch (error) {
+      if (error instanceof InvalidMonotonicTimeError) throw error;
       return { samples: [], stats: emptyStats(exchangeId) };
     }
   }
@@ -122,11 +147,13 @@ export class LatencyMonitor {
     symbol: string,
     durationMs: number,
     rttIntervalMs: number,
+    clock: MonotonicClock,
   ): Promise<RttSample[]> {
     const samples: RttSample[] = [];
-    const endTime = this.time.now() + durationMs;
-    while (this.time.now() < endTime && !this.cancelled) {
-      const timestamp = this.time.now();
+    const endTime = clock.read() + durationMs;
+    while (clock.read() < endTime && !this.cancelled) {
+      const timestamp = this.time.utcNow();
+      const startedAt = clock.read();
       let isSuccessful: boolean;
       try {
         await exchange.fetchTicker(symbol);
@@ -137,12 +164,16 @@ export class LatencyMonitor {
       samples.push({
         exchangeId,
         timestamp,
-        rttMs: this.time.now() - timestamp,
+        rttMs: clock.read() - startedAt,
         method: "rest",
         success: isSuccessful,
       });
-      const remaining = timestamp + rttIntervalMs - this.time.now();
-      if (remaining > 0) await this.time.wait(Math.min(remaining, endTime - this.time.now()));
+      const remaining = startedAt + rttIntervalMs - clock.read();
+      if (remaining > 0) {
+        const untilDeadline = endTime - clock.read();
+        const delay = Math.max(0, Math.min(remaining, untilDeadline));
+        await this.time.wait(delay);
+      }
     }
     return samples;
   }
@@ -154,20 +185,22 @@ export class LatencyMonitor {
     durationMs: number,
     wsMessageBudget: number,
     forcedDisconnectAtMs: number,
+    clock: MonotonicClock,
   ): Promise<LatencySample[]> {
     const samples: LatencySample[] = [];
-    let lastMessageAt: number | undefined;
-    let reconnectStartAt: number | undefined;
+    let lastMessageAt: { readonly monotonic: number; readonly utc: number } | undefined;
+    let reconnectStartAt: { readonly monotonic: number; readonly utc: number } | undefined;
     let messagesSinceConnect = 0;
-    const startTime = this.time.now();
+    const startTime = clock.read();
     const endTime = startTime + durationMs;
-    while (this.time.now() < endTime && messagesSinceConnect < wsMessageBudget && !this.cancelled) {
+    while (clock.read() < endTime && messagesSinceConnect < wsMessageBudget && !this.cancelled) {
+      const currentTime = clock.read();
       const shouldReconnect =
         reconnectStartAt === undefined &&
         forcedDisconnectAtMs !== Infinity &&
-        this.time.now() - startTime >= forcedDisconnectAtMs;
+        currentTime - startTime >= forcedDisconnectAtMs;
       if (shouldReconnect) {
-        reconnectStartAt = this.time.now();
+        reconnectStartAt = { monotonic: currentTime, utc: this.time.utcNow() };
         await closeQuietly(exchange);
         await this.time.wait(200);
         try {
@@ -179,22 +212,23 @@ export class LatencyMonitor {
       }
       try {
         await exchange.watchOrderBook(symbol, 50);
-        const timestamp = this.time.now();
+        const timestamp = this.time.utcNow();
+        const monotonicTimestamp = clock.read();
         messagesSinceConnect += 1;
         if (lastMessageAt !== undefined)
           samples.push({
             exchangeId,
             timestamp,
-            gapMs: timestamp - lastMessageAt,
-            previousTimestamp: lastMessageAt,
+            gapMs: monotonicTimestamp - lastMessageAt.monotonic,
+            previousTimestamp: lastMessageAt.utc,
           });
-        lastMessageAt = timestamp;
+        lastMessageAt = { monotonic: monotonicTimestamp, utc: timestamp };
         if (reconnectStartAt !== undefined && samples.every((sample) => !("reconnectMs" in sample)))
           samples.push({
             exchangeId,
             timestamp,
-            reconnectMs: timestamp - reconnectStartAt,
-            disconnectAt: reconnectStartAt,
+            reconnectMs: monotonicTimestamp - reconnectStartAt.monotonic,
+            disconnectAt: reconnectStartAt.utc,
           });
       } catch {
         await this.time.wait(50);
@@ -231,12 +265,15 @@ export class LatencyMonitor {
     const forcedDisconnectAtMs = config.forcedDisconnectAtMs ?? this.defaultConfig.forcedDisconnectAtMs;
     const samples: LatencySample[] = [];
     const exchange = this.createExchange(exchangeId);
+    const clock = new MonotonicClock(this.time);
     this.activeExchange = exchange;
     this.cancelled = false;
 
     try {
       const rttPromise = (async (): Promise<void> => {
-        samples.push(...(await this.measureRtt(exchange, exchangeId, symbol, durationMs, rttIntervalMs)));
+        samples.push(
+          ...(await this.measureRtt(exchange, exchangeId, symbol, durationMs, rttIntervalMs, clock)),
+        );
       })();
       const gapPromise = (async (): Promise<void> => {
         samples.push(
@@ -247,6 +284,7 @@ export class LatencyMonitor {
             durationMs,
             wsMessageBudget,
             shouldMeasureReconnect ? forcedDisconnectAtMs : Infinity,
+            clock,
           )),
         );
       })();
@@ -260,7 +298,7 @@ export class LatencyMonitor {
   }
 
   async start(config: LatencyMonitorConfig): Promise<LatencyMonitorResult> {
-    const startedAt = this.time.now();
+    const startedAt = this.time.utcNow();
     const exchangeIds = config.exchangeIds;
     const effectiveConfig = {
       symbol: config.symbol ?? this.defaultConfig.symbol,
@@ -285,7 +323,7 @@ export class LatencyMonitor {
     return {
       config: { ...effectiveConfig, exchangeIds },
       startedAt,
-      endedAt: this.time.now(),
+      endedAt: this.time.utcNow(),
       statsByExchange: statsByExchange.snapshot(),
       samples: allSamples,
     };

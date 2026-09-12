@@ -82,13 +82,16 @@ export interface LatencyMonitorDefaults {
 }
 
 /**
- * Wall-clock dependency used by latency-monitor lifecycle measurements.
+ * Time sources used by latency-monitor lifecycle measurements.
  *
- * Production uses the system clock and timer; callers may provide another
- * implementation when the surrounding runtime supplies its own scheduler.
+ * `utcNow` creates public timestamps, `monotonicNow` measures elapsed time,
+ * and `wait` schedules lifecycle delays. Production uses native sources;
+ * callers may provide another implementation when their runtime supplies a
+ * scheduler.
  */
 export interface LatencyMonitorTimePort {
-  readonly now: () => number;
+  readonly utcNow: () => number;
+  readonly monotonicNow: () => number;
   readonly wait: (milliseconds: number) => Promise<void>;
 }
 
