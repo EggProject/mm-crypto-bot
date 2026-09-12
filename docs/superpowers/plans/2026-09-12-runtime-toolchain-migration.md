@@ -64,7 +64,7 @@ export MM_CRYPTO_BOT_NODE_EXECUTABLE="$(nvm which 24.21.0)" MM_CRYPTO_BOT_NODE_P
 test -x "$MM_CRYPTO_BOT_NODE_EXECUTABLE"
 ```
 
-The following heredoc is the immutable exact 44-path pre-A baseline. A0 then creates exactly `scripts/tooling/vitest.node-executable-protocol.unit.config.mjs` and `scripts/tooling/vitest.node-executable-protocol.e2e.config.mjs`; the frozen `vitest-list-all-configs` post-A roster is exactly those two plus this heredoc, or 46 paths. Do not create the two nonexistent bot configs.
+The following heredoc is the immutable exact 46-path pre-A baseline. A0 then creates exactly `scripts/tooling/vitest.node-executable-protocol.unit.config.mjs` and `scripts/tooling/vitest.node-executable-protocol.e2e.config.mjs`; the frozen `vitest-list-all-configs` post-A roster is exactly those two plus this heredoc, or 48 paths.
 
 ```bash
 source /home/eggp/.nvm/nvm.sh
@@ -73,6 +73,8 @@ while IFS= read -r config; do
 done <<'VITEST_CONFIGS'
 apps/bot/vitest.config-command.config.mjs
 apps/bot/vitest.config.ts
+apps/bot/vitest.lint-foundation.mjs
+apps/bot/vitest.selected-leverage-config.mjs
 apps/config-search/vitest.config.mjs
 packages/assert/vitest.config.ts
 packages/backtest-tools/vitest.arb-latency-artifact-v2-input-snapshot.config.mjs
@@ -130,7 +132,7 @@ The runner-bearing mutable paths are `package.json`, `apps/bot/package.json`, `p
 
 `VitestGate` is exactly: `release-coverage-unit|release-coverage-e2e|node-executable-protocol-unit|node-executable-protocol-e2e|vitest-list-all-configs|bot-config-command-coverage|bot-e2e-preload-coverage|bot-runtime-scope-coverage|bot-unit-scope|bot-unit-coverage|assert-test|assert-coverage|backtest-tools-dydx-r3-coverage|backtest-coverage|exchange-bybit-eu-adapter-coverage|logging-test|logging-coverage|numeric-test|numeric-coverage|paper-coverage|shared-test|shared-coverage|typeguard-test|typeguard-coverage|typing-test|typing-coverage|ci-foundation-coverage|ci-test-junit|coverage-full-test`; `NodeGate` additionally includes `staged-eslint|staged-prettier`. The protocol accepts only `bun scripts/tooling/node-executable-protocol.ts --gate=<one exact NodeGate>`; no config, cwd, executable, or additional argv option exists. It realpaths the injected executable before `--version` and before the sole `spawn(executable, argv, { shell: false })`. Its local branch requires own absolute-string `NVM_DIR`, `NVM_BIN`, and executable inputs; `realpath(executable)` must equal `realpath(NVM_DIR)/versions/node/v24.21.0/bin/node`, `NVM_BIN` must equal that bin directory, and `--version` must equal `v24.21.0`, rejecting missing/relative/mismatch or same-version system Node. Tests include every rejection and a synthetic non-`/home` NVM-root real-child PASS; CI alone uses the tool-cache exception.
 
-Every Vitest mapping uses `repoRoot/node_modules/vitest/vitest.mjs`, `run`, `--config`, and the stated config; `vitest-list-all-configs` uses `list --config` for the closed post-A 46-roster, and no caller supplies a path. `release-coverage-unit|e2e` use root `scripts/release/vitest.config.ts|vitest.e2e.config.ts --coverage`; `node-executable-protocol-unit|e2e` use root `scripts/tooling/vitest.node-executable-protocol.unit.config.mjs|vitest.node-executable-protocol.e2e.config.mjs --coverage`; bot config/preload/scope use root CWD and respectively `apps/bot/vitest.config-command.config.mjs`, `scripts/coverage-tools/vitest.bot-e2e-preload.config.mjs`, `scripts/coverage-tools/vitest.bot-runtime-scope.config.mjs`, each `--coverage`; bot-unit-scope runs absolute `scripts/coverage-tools/verify-bot-runtime-scope.ts` from root and bot-unit-coverage then runs `apps/bot/vitest.config.ts --coverage --coverage.reportsDirectory=<absolute apps/bot/coverage/unit>` from root. `staged-eslint` is root-CWD `repoRoot/node_modules/eslint/bin/eslint.js --config eslint.config.js --max-warnings=0 -- <validated paths>`; `staged-prettier` is `repoRoot/node_modules/prettier/bin/prettier.cjs --check --ignore-unknown -- <validated paths>`; only the validator supplies paths after literal `--`.
+Every Vitest mapping uses `repoRoot/node_modules/vitest/vitest.mjs`, `run`, `--config`, and the stated config; `vitest-list-all-configs` uses `list --config` for the closed post-A 48-roster, and no caller supplies a path. `release-coverage-unit|e2e` use root `scripts/release/vitest.config.ts|vitest.e2e.config.ts --coverage`; `node-executable-protocol-unit|e2e` use root `scripts/tooling/vitest.node-executable-protocol.unit.config.mjs|vitest.node-executable-protocol.e2e.config.mjs --coverage`; bot config/preload/scope use root CWD and respectively `apps/bot/vitest.config-command.config.mjs`, `scripts/coverage-tools/vitest.bot-e2e-preload.config.mjs`, `scripts/coverage-tools/vitest.bot-runtime-scope.config.mjs`, each `--coverage`; bot-unit-scope runs absolute `scripts/coverage-tools/verify-bot-runtime-scope.ts` from root and bot-unit-coverage then runs `apps/bot/vitest.config.ts --coverage --coverage.reportsDirectory=<absolute apps/bot/coverage/unit>` from root. `staged-eslint` is root-CWD `repoRoot/node_modules/eslint/bin/eslint.js --config eslint.config.js --max-warnings=0 -- <validated paths>`; `staged-prettier` is `repoRoot/node_modules/prettier/bin/prettier.cjs --check --ignore-unknown -- <validated paths>`; only the validator supplies paths after literal `--`.
 
 Package script forms are fixed `bun ../../scripts/tooling/node-executable-protocol.ts --gate=<member>` (bot first `cd ../..`; package CWD otherwise): assert/logging/numeric/shared/typeguard/typing `test` use their `*-test` gate and `coverage|coverage:unit|coverage:text|coverage:lcov` their `*-coverage` gate, all with `vitest.config.ts` (logging retains its Bun E2E half); paper coverage aliases use `paper-coverage`; backtest coverage aliases retain the existing echo then `backtest-coverage`; backtest-tools `coverage:dydx-r3` uses `vitest.dydx-r3.config.mjs` without coverage; exchange `coverage:bybit-eu-adapter` uses `vitest.bybit-eu-adapter.config.mjs --coverage`.
 
@@ -236,10 +238,15 @@ export type ReleaseSetManifestV2 = ReleaseSetManifestBase &
     toolchain: { readonly bun: "1.4.2"; readonly nodeMetadata: "24.21.0" };
   }>;
 export type ReleaseSetManifest = ReleaseSetManifestV1 | ReleaseSetManifestV2;
+export type ManifestGeneration = "v1" | "v2";
+export type ParsedReleaseSetManifest = Readonly<{
+  manifest: ReleaseSetManifest;
+  manifestGeneration: ManifestGeneration;
+}>;
 export function verifyPublishedReleaseSet(input: ReleaseSetVerificationInput): Promise<ReleaseSetManifest>;
 ```
 
-- [ ] **Step 1: Write RED compatibility cases.** Compile-time public API tests prove `verifyPublishedReleaseSet` in `release-artifact-verifier.ts` returns only outer `ReleaseSetManifest`, while `verifyReleaseArchive` returns only inner `ReleaseManifest`; runtime tests cover V1, V2, and mixed-negative values. Add V2 assembly/emission in `release-set-zip.ts`, its unit/E2E coverage and API tests, and V1/mixed pre-effect rejection cases. Put new publication V2 cases in `release-set-v2-publication.e2e.test.ts` before touching the 495-line workflow test. Mutate outer schema/target/toolchain/version, either inner identity, and V1/V2 pairing; every outer-inner or inner-inner mismatch fails closed before effects.
+- [ ] **Step 1: Write RED compatibility cases.** Compile-time public API tests prove `verifyPublishedReleaseSet` in `release-artifact-verifier.ts` returns only outer `ReleaseSetManifest`, while `verifyReleaseArchive` returns only inner `ReleaseManifest`; runtime tests cover V1, V2, unknown schema, outer-V1/inner-V2, and outer-V2/inner-V1 in both pair orders. Add V2 assembly/emission in `release-set-zip.ts`, its unit/E2E coverage and API tests, and V1/mixed pre-effect rejection cases. Put new publication V2 cases in `release-set-v2-publication.e2e.test.ts` before touching the 495-line workflow test. Mutate outer target/toolchain/version/commit/lock/source epoch or either inner identity; every mismatch fails closed before effects.
 
 - [ ] **Step 2: Run the RED release-set checks.**
 
@@ -249,7 +256,7 @@ bun test scripts/release/release-set-contract.test.ts scripts/release/release-se
 
 Expected: FAIL because the release-set contract accepts only `ReleaseManifestV1`.
 
-- [ ] **Step 3: Implement verify-only V1 preservation.** `verifyPublishedReleaseSet` in `release-artifact-verifier.ts` returns outer V1/V2 `ReleaseSetManifest`; `verifyReleaseArchive` returns inner `ReleaseManifest`; exact V1/V2 toolchains cannot cross. `release-set-zip.ts` emits only the V2 outer manifest. Set verification deep-matches outer schema/target/toolchain/version to both authenticated inners and both inners; `release-set-reproducibility.ts` narrows V2 before V2-only assembly, which rejects V1/mixed before effects. Preserve layout/publication/sidecar contracts.
+- [ ] **Step 3: Implement verify-only V1 preservation.** Independently parse `mm-crypto-bot.release-set-manifest/v1|v2` and `mm-crypto-bot.release-manifest/v1|v2` into immutable `manifestGeneration: "v1"|"v2"`; never raw-compare their different schema strings. `verifyPublishedReleaseSet` in `release-artifact-verifier.ts` returns outer V1/V2 `ReleaseSetManifest`; `verifyReleaseArchive` returns inner `ReleaseManifest`; exact generations/toolchains cannot cross. `release-set-zip.ts` emits only the V2 outer manifest. Set verification compares generation, target, toolchain, version, commit, lockfile SHA, source epoch, and both authenticated inner identities; `release-set-reproducibility.ts` narrows V2 before V2-only assembly, which rejects V1/mixed before effects. Preserve layout/publication/sidecar contracts.
 
 - [ ] **Step 4: Run the GREEN release-set checks.** Re-run the command from Step 2. Expected: PASS, including V1 verifier compatibility and V1/mixed assembly rejection before any temporary-directory, write, smoke, or `link` call.
 
@@ -264,13 +271,15 @@ Expected: FAIL because the release-set contract accepts only `ReleaseManifestV1`
 - [ ] **Step 2: Demonstrate the RED frozen-install mismatch.** Change only root runtime metadata, root `bun-types`, both application `@types/bun` entries, `.bun-version`, and `.nvmrc`, then run:
 
 ```bash
-bun install --frozen-lockfile
+if bun install --frozen-lockfile; then phase_a_frozen_status=0; else phase_a_frozen_status=$?; fi
+printf 'phase_a_frozen_status=%s\n' "$phase_a_frozen_status" | tee /tmp/mm-runtime-toolchain-phase-a-red-frozen-status.txt
+if test "$phase_a_frozen_status" -eq 0; then printf '%s\n' 'expected frozen-install mismatch did not occur' >&2; exit 1; fi
 bun pm licenses --json > /tmp/mm-runtime-toolchain-licenses-phase-a.json
 cat /tmp/mm-runtime-toolchain-licenses-phase-a.json
 bun --eval 'const raw = await Bun.file("/tmp/mm-runtime-toolchain-licenses-phase-a.json").text(); const value: unknown = JSON.parse(raw); if (raw.trim().length === 0 || typeof value !== "object" || value === null || Array.isArray(value) || Object.keys(value).length === 0 || Object.keys(value).some((license) => /^(unknown|unlicensed)$/iu.test(license))) throw new Error("missing, empty, unknown, or unlicensed license inventory");'
 ```
 
-Expected: nonzero because the prior lock cannot satisfy the exact Bun type pins; do not suppress the failure or edit `bun.lock` manually.
+Expected: the recorded `phase_a_frozen_status` is nonzero because the prior lock cannot satisfy the exact Bun type pins; later license commands cannot mask it. Do not suppress the failure or edit `bun.lock` manually.
 
 - [ ] **Step 3: Regenerate the Phase A lock with the exact runtime.** Verify `bun --version` prints exactly `1.4.2`, then run:
 
@@ -371,7 +380,7 @@ git diff -- bun.lock package.json packages/assert/package.json packages/logging/
 
 Expected: frozen installation, exact-pin assertions, high/critical audit, and deterministic license gate PASS; the gate prints the nonempty grouped SPDX inventory for review and fails closed on missing/empty/unknown/unlicensed buckets. The lock diff contains only dependency resolution consequences of the six exact manifest updates.
 
-- [ ] **Step 6: Prove all configs after the dependency update.** Run the post-A0 local bootstrap above, then `bun scripts/tooling/node-executable-protocol.ts --gate=vitest-list-all-configs`. Its closed roster is exactly 46 paths. Expected: every configuration loads under verified Node `24.21.0`; otherwise stop under the compatibility blocker.
+- [ ] **Step 6: Prove all configs after the dependency update.** Run the post-A0 local bootstrap above, then `bun scripts/tooling/node-executable-protocol.ts --gate=vitest-list-all-configs`. Its closed roster is exactly 48 paths. Expected: every configuration loads under verified Node `24.21.0`; otherwise stop under the compatibility blocker.
 
 ### Task B2: Remove downloading/ambient Vitest launch paths and prove all configs load
 
@@ -411,7 +420,7 @@ printf 'MM_CRYPTO_BOT_NODE_EXECUTABLE=%s\nMM_CRYPTO_BOT_NODE_PROVENANCE=ci\nMM_C
 
 Pin every `uses:` to SHA with adjacent version comment: `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1`, `actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0`, `oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0`, `actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1`, and `dorny/test-reporter@894765a932a426ee30919ffd3b5fd3b53c0e26b8 # v2.2.0`; contract tests reject mutable tags. Official tag sources: [checkout](https://github.com/actions/checkout/releases/tag/v7.0.1), [setup-node](https://github.com/actions/setup-node/releases/tag/v7.0.0), [setup-bun](https://github.com/oven-sh/setup-bun/releases/tag/v2.2.0), [upload-artifact](https://github.com/actions/upload-artifact/releases/tag/v7.0.1), [test-reporter](https://github.com/dorny/test-reporter/releases/tag/v2.2.0).
 
-**Consumers and handoff:** Root coverage scripts, bot, backtest/backtest-tools, exchange, paper, shared, `run-bot-unit-coverage.ts`, CI foundation/test, and the post-A 46-list gate call the port only; `release-coverage.ts` already does from A0. No PATH lookup, eval, shell string, downloader, arbitrary executable/config, or ambient Vitest remains. CI retains jobs and runs frozen install → audit → licenses without removing a check. `package.json` and `toolchain-contract.test.ts` deliberately change in both commits: B1 pins/locks, then B2 migrates consumers/scans; the same sequential Terra owner validates each handoff.
+**Consumers and handoff:** Root coverage scripts, bot, backtest/backtest-tools, exchange, paper, shared, `run-bot-unit-coverage.ts`, CI foundation/test, and the post-A 48-list gate call the port only; `release-coverage.ts` already does from A0. No PATH lookup, eval, shell string, downloader, arbitrary executable/config, or ambient Vitest remains. CI retains jobs and runs frozen install → audit → licenses without removing a check. `package.json` and `toolchain-contract.test.ts` deliberately change in both commits: B1 pins/locks, then B2 migrates consumers/scans; the same sequential Terra owner validates each handoff.
 
 - [ ] **Step 1: Write RED local-runner and CI enforcement tests.** `node-executable-protocol.test.ts` asserts every sealed map/argv/CWD/flag and unknown rejection; CI rejects missing/nonabsolute/nonexecutable cache root/executable, bad architecture/version, or same-version path outside `realpath(cacheRoot)/node/24.21.0/<arch>/bin/node`. `toolchain-contract.test.ts` inventories root plus all 13 workspace manifests, CI, coverage-full/bot-unit/install/release-coverage; rejects every raw Node/Vitest/Turbo/TypeScript/ESLint/Prettier bypass; asserts all seven setup-node steps have the exact SHA `GITHUB_ENV` block then frozen install, action SHAs/comments below, and audit → licenses order.
 
@@ -426,7 +435,7 @@ Expected: FAIL while the old `bunx`, ambient `node`, and previous command string
 
 - [ ] **Step 3: Implement the A0 port across every listed consumer.** Preserve coverage sources/reporters/thresholds, network guards, worker limits, mode clearing, and command order. Replace the install script's JSON-only Node one-liner with behavior-only `bun --eval` and document why it does not start Node/Vitest. Local evidence uses only the `/home/eggp/.nvm/nvm.sh` bootstrap; CI performs the exact tool-cache injection. Do not mutate a Vitest config merely to make it pass.
 
-- [ ] **Step 4: Prove every tracked Vitest config loads again after local-runner changes.** Use the identical A0 protocol bootstrap and `bun scripts/tooling/node-executable-protocol.ts --gate=vitest-list-all-configs` for all 46 paths. A failure must capture the config path and error; only that path may be proposed for a separately described compatibility repair after the blocker protocol below.
+- [ ] **Step 4: Prove every tracked Vitest config loads again after local-runner changes.** Use the identical A0 protocol bootstrap and `bun scripts/tooling/node-executable-protocol.ts --gate=vitest-list-all-configs` for all 48 paths. A failure must capture the config path and error; only that path may be proposed for a separately described compatibility repair after the blocker protocol below.
 
 - [ ] **Step 5: Run the GREEN deterministic and full gates.**
 
@@ -464,13 +473,13 @@ env LEFTHOOK_BIN="$PWD/node_modules/.bin/lefthook" git commit -m "chore(test): m
 
 Record the manual gate PASS separately from the automatic Lefthook stdout/exit emitted by the normal coordinator-only commit.
 
-- [ ] **Step 7: Obtain independent actual-diff reviews.** A `terra_reviewer` reviews `phase_b_base..HEAD` for exact pins/SHAs, lock closure, sealed Node tools, supply-chain gates, 46-config compatibility, and coverage. A `luna_process_reviewer` reviews isolation, TDD, frozen/audit/license evidence, staging, CI exception, and gates. Valid findings require a smallest follow-up and full-range re-review; do not close/push/open PR first.
+- [ ] **Step 7: Obtain independent actual-diff reviews.** A `terra_reviewer` reviews `phase_b_base..HEAD` for exact pins/SHAs, lock closure, sealed Node tools, supply-chain gates, 48-config compatibility, and coverage. A `luna_process_reviewer` reviews isolation, TDD, frozen/audit/license evidence, staging, CI exception, and gates. Valid findings require a smallest follow-up and full-range re-review; do not close/push/open PR first.
 
 ## Fail-Closed Compatibility Blocker
 
-Vitest `5.0.0` cannot be truthfully declared compatible until the allowed Bun `1.4.2` lock regeneration has produced a frozen install and the exact post-A 46-config Node `24.21.0` validation has run after both dependency and runner updates. The current read-only audit cannot supply that evidence.
+Vitest `5.0.0` cannot be truthfully declared compatible until the allowed Bun `1.4.2` lock regeneration has produced a frozen install and the exact post-A 48-config Node `24.21.0` validation has run after both dependency and runner updates. The current read-only audit cannot supply that evidence.
 
-If one fails, stop before modifying an unlisted Vitest config, TypeScript `6.0.3`, Turbo `2.10.10`, Vite `8.2.1`, coverage threshold/source list, or historical doc. Record config/command/error; do not fabricate repair, broaden B, downgrade, or treat a subset as all-46 proof.
+If one fails, stop before modifying an unlisted Vitest config, TypeScript `6.0.3`, Turbo `2.10.10`, Vite `8.2.1`, coverage threshold/source list, or historical doc. Record config/command/error; do not fabricate repair, broaden B, downgrade, or treat a subset as all-48 proof.
 
 ## Planning-Workspace Note
 
