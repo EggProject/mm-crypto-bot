@@ -2,7 +2,7 @@
  * Public API and pure-helper tests for LatencyMonitor.
  */
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 
 import {
   LatencyMonitor,
@@ -164,7 +164,25 @@ class RejectingBybitMonitor extends LatencyMonitor {
   }
 }
 
+class RejectingEveryExchangeMonitor extends LatencyMonitor {
+  override measureExchange(exchangeId: SupportedExchangeId, config: LatencyMonitorConfig) {
+    return Promise.reject(
+      new Error(`${exchangeId} measurement rejected for ${config.symbol ?? "the default symbol"}`),
+    );
+  }
+}
+
 describe("LatencyMonitor.start", () => {
+  it("preserves only selected exchange keys in configured order when every measurement rejects", async () => {
+    const result = await new RejectingEveryExchangeMonitor().start({
+      exchangeIds: ["binance", "bybit", "kucoin", "bybiteu"],
+    });
+
+    expect(Object.keys(result.statsByExchange)).toEqual(["binance", "bybit", "kucoin", "bybiteu"]);
+    expect(result.statsByExchange.kucoin.rttCount).toBe(0);
+    expect(result.statsByExchange.bybiteu.gapCount).toBe(0);
+  });
+
   it("returns empty NaN stats when a public exchange measurement rejects", async () => {
     const monitor = new RejectingBybitMonitor();
 
