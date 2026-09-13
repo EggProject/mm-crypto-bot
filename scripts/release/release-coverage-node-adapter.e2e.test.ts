@@ -1,101 +1,68 @@
 import { describe, expect, test } from "vitest";
 
 import {
-  createNodeReleaseCoverageChildPort,
+  createNodeReleaseCoverageGateRunner,
   createNodeReleaseCoverageDependencies,
   createReleaseCoverageCommand,
   runReleaseCoverageEntrypoint,
-  type RawNodeChild,
-  type RawNodeSpawn,
-  type ReleaseCoverageChildInput,
 } from "./release-coverage";
+import { runReleaseCoverageNodeGate } from "./release-coverage-node-gate";
 
-class EventChild implements RawNodeChild {
-  readonly listeners = new Map<string, (...values: unknown[]) => void>();
-
-  once(eventName: string, listener: (...values: unknown[]) => void): RawNodeChild {
-    this.listeners.set(eventName, listener);
-    return this;
-  }
-
-  emit(eventName: "close" | "error", ...values: unknown[]): void {
-    const listener = this.listeners.get(eventName);
-    if (listener === undefined) throw new Error(`missing ${eventName} listener`);
-    listener(...values);
-  }
-}
-
-const command: ReleaseCoverageChildInput = {
-  argv: ["node", "node_modules/vitest/vitest.mjs", "run"],
-  cwd: "/trusted/repository",
-  env: Object.freeze({ PATH: "/usr/bin" }),
-};
-
-describe("release coverage Node adapter", () => {
-  test("uses fixed spawn arguments and resolves only the close event result", async () => {
-    const child = new EventChild();
-    const calls: (readonly [string, readonly string[], unknown])[] = [];
-    const spawn: RawNodeSpawn = (executable, argv, options) => {
-      calls.push([executable, argv, options]);
-      return child;
-    };
-    const result = createNodeReleaseCoverageChildPort(spawn)(command);
-    child.emit("close", 0, undefined);
-    await expect(result).resolves.toEqual({ signal: undefined, status: 0 });
-    expect(calls).toEqual([
-      [
-        "node",
-        ["node_modules/vitest/vitest.mjs", "run"],
-        { cwd: "/trusted/repository", env: { PATH: "/usr/bin" }, shell: false, stdio: "ignore" },
-      ],
-    ]);
-  });
-
-  test("redacts child error details and rejects missing executables before spawning", async () => {
-    const child = new EventChild();
-    let calls = 0;
-    const port = createNodeReleaseCoverageChildPort(() => {
-      calls += 1;
-      return child;
+describe("release coverage verified Node adapter", () => {
+  test("rejects unknown child tags and accepts only the two sealed coverage tags", async () => {
+    const gates: string[] = [];
+    const runChild = createNodeReleaseCoverageGateRunner((gate) => {
+      gates.push(gate);
+      return Promise.resolve();
     });
-    const pending = port(command);
-    child.emit("error", new Error("secret child stderr"));
-    await expect(pending).rejects.toThrow("coverage child failed");
-    await expect(port({ ...command, argv: [] })).rejects.toThrow("invalid coverage child command");
-    expect(calls).toBe(1);
-  });
-
-  test("normalizes untrusted close values before the coverage command validates them", async () => {
-    for (const [status, signal, expected] of [
-      ["0", "SIGTERM", { signal: "SIGTERM", status: undefined }],
-      [undefined, undefined, { signal: undefined, status: undefined }],
-    ] as const) {
-      const child = new EventChild();
-      const result = createNodeReleaseCoverageChildPort(() => child)(command);
-      child.emit("close", status, signal);
-      await expect(result).resolves.toEqual(expected);
-    }
-  });
-
-  test("composes sanitized Node dependencies with the public command factory", () => {
-    const dependencies = createNodeReleaseCoverageDependencies(
-      "/trusted/repository",
-      { NODE: "/tmp/bun-node-selected/node", PATH: "/tmp/bun-node-selected:/usr/bin", SAFE: "yes" },
-      "/tmp",
-      () => Promise.resolve({ signal: undefined, status: 0 }),
+    await expect(runChild({ argv: ["unknown"], cwd: "/repo", env: {} })).rejects.toThrow(
+      "invalid coverage child command",
     );
-    expect(dependencies.environment).toEqual({ PATH: "/usr/bin", SAFE: "yes" });
-    expect(Object.isFrozen(dependencies)).toBe(true);
-    expect(createReleaseCoverageCommand(["--level=unit"], dependencies)).toBeTypeOf("function");
+    await expect(runChild({ argv: ["release-coverage-unit"], cwd: "/repo", env: {} })).resolves.toEqual({
+      signal: undefined,
+      status: 0,
+    });
+    await expect(runChild({ argv: ["release-coverage-e2e"], cwd: "/repo", env: {} })).resolves.toEqual({
+      signal: undefined,
+      status: 0,
+    });
+    expect(gates).toEqual(["unit", "e2e"]);
   });
 
-  test("invokes each production Node coverage reader without exposing its filesystem errors", async () => {
+  test("constructs the production sealed runner without ambient execution", () => {
+    expect(createNodeReleaseCoverageGateRunner()).toBeTypeOf("function");
+  });
+  test("maps both release levels through the sealed protocol boundary", async () => {
+    const gates: string[] = [];
+    for (const level of ["unit", "e2e"] as const) {
+      await runReleaseCoverageNodeGate(level, {}, (_environment, gate) => {
+        gates.push(gate);
+        return Promise.resolve();
+      });
+    }
+    expect(gates).toEqual(["release-coverage-unit", "release-coverage-e2e"]);
+  });
+
+  test("keeps readers inert until the public command runs", async () => {
     const dependencies = createNodeReleaseCoverageDependencies(
       process.cwd(),
-      { PATH: process.env["PATH"] ?? "" },
+      { NODE: "/untrusted/node", PATH: process.env["PATH"] ?? "" },
       "/tmp",
       () => Promise.resolve({ signal: undefined, status: 0 }),
     );
+    expect(dependencies.environment).toEqual({ PATH: process.env["PATH"] ?? "" });
+    expect(createReleaseCoverageCommand).toBeTypeOf("function");
+    await expect(
+      runReleaseCoverageEntrypoint({
+        argv: [],
+        exitCodeTarget: { exitCode: undefined },
+        isMain: false,
+        runCommand: () => Promise.reject(new Error("must remain inert")),
+        writeStderr: () => {
+          throw new Error("must remain inert");
+        },
+      }),
+    ).resolves.toBeUndefined();
     const reports = await Promise.allSettled([
       dependencies.readUnitCoverageSummary(),
       dependencies.readUnitLcov(),
@@ -105,27 +72,8 @@ describe("release coverage Node adapter", () => {
     expect(reports).toHaveLength(4);
   });
 
-  test("leaves imported entrypoints inert and maps main success or failures to redacted process state", async () => {
-    const imported = { exitCode: 2 };
-    let importedCalls = 0;
-    await expect(
-      runReleaseCoverageEntrypoint({
-        argv: [],
-        exitCodeTarget: imported,
-        isMain: false,
-        runCommand: () => {
-          importedCalls += 1;
-          return Promise.resolve();
-        },
-        writeStderr: () => {
-          throw new Error("unexpected stderr write");
-        },
-      }),
-    ).resolves.toBe(2);
-    expect(importedCalls).toBe(0);
-    expect(imported.exitCode).toBe(2);
-
-    const success = { exitCode: 2 };
+  test("maps executable success and failure to a redacted process result", async () => {
+    const success = { exitCode: undefined as number | undefined };
     await expect(
       runReleaseCoverageEntrypoint({
         argv: [],
@@ -133,26 +81,23 @@ describe("release coverage Node adapter", () => {
         isMain: true,
         runCommand: () => Promise.resolve(),
         writeStderr: () => {
-          throw new Error("unexpected stderr write");
+          throw new Error("unexpected stderr");
         },
       }),
     ).resolves.toBe(0);
-    expect(success.exitCode).toBe(0);
-
-    const failure = { exitCode: 2 };
-    const stderr: string[] = [];
+    const failure = { exitCode: undefined as number | undefined };
+    const output: string[] = [];
     await expect(
       runReleaseCoverageEntrypoint({
         argv: [],
         exitCodeTarget: failure,
         isMain: true,
-        runCommand: () => Promise.reject(new Error("secret diagnostic")),
+        runCommand: () => Promise.reject(new Error("secret")),
         writeStderr: (text) => {
-          stderr.push(text);
+          output.push(text);
         },
       }),
     ).resolves.toBe(1);
-    expect(failure.exitCode).toBe(1);
-    expect(stderr).toEqual(["release coverage failed\n"]);
+    expect(output).toEqual(["release coverage failed\n"]);
   });
 });

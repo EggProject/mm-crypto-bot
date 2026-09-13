@@ -1,13 +1,13 @@
 import {
-  createNodeReleaseCoverageChildPort,
   createNodeReleaseCoverageDependencies,
+  createNodeReleaseCoverageGateRunner,
   createReleaseCoverageCommand,
   parseReleaseCoverageArguments,
   runReleaseCoverage,
   runReleaseCoverageEntrypoint,
   sanitizeReleaseCoverageEnvironment,
 } from "./release-coverage";
-import type { RawNodeChild, ReleaseCoverageDependencies } from "./release-coverage";
+import type { ReleaseCoverageDependencies } from "./release-coverage";
 interface ChildCall {
   readonly argv: readonly string[];
   readonly cwd: string;
@@ -15,6 +15,7 @@ interface ChildCall {
 }
 interface Expectation {
   readonly rejects: { toThrow(expected?: string | RegExp): Promise<void> };
+  readonly resolves: { toEqual(expected: unknown): Promise<void> };
   toBe(expected: unknown): void;
   toBeUndefined(): void;
   toContain(expected: string): void;
@@ -68,6 +69,7 @@ const unitSources = [
   "release-set-publication.ts",
   "release-set-reproducibility.ts",
   "release-ports.ts",
+  "release-coverage-node-gate.ts",
 ] as const;
 const e2eSources = [
   "release-assembler.ts",
@@ -81,42 +83,19 @@ const e2eSources = [
   "release-set-reproducibility.ts",
   "release-ports.ts",
   "release-coverage.ts",
+  "release-coverage-node-gate.ts",
   "release-artifact-verifier.ts",
   "verify.ts",
 ] as const;
 const fullMetric = '{"total":1,"covered":1,"pct":100}';
 const fullSummaryMetrics = `{"statements":${fullMetric},"branches":${fullMetric},"functions":${fullMetric},"lines":${fullMetric}}`;
-const unitArgv = [
-  "node",
-  "node_modules/vitest/vitest.mjs",
-  "run",
-  "--config",
-  "scripts/release/vitest.config.ts",
-  "--coverage",
-] as const;
-const e2eArgv = [...unitArgv.slice(0, 4), "scripts/release/vitest.e2e.config.ts", "--coverage"] as const;
+const unitArgv = ["release-coverage-unit"] as const;
+const e2eArgv = ["release-coverage-e2e"] as const;
 type ReportName = "unitSummary" | "unitLcov" | "e2eSummary" | "e2eLcov";
 interface Fixture {
   readonly calls: ChildCall[];
   readonly dependencies: ReleaseCoverageDependencies;
   readonly reads: ReportName[];
-}
-class TestChild implements RawNodeChild {
-  readonly #listeners = new Map<string, (...values: unknown[]) => void>();
-  once(eventName: string, listener: (...values: unknown[]) => void): RawNodeChild {
-    this.#listeners.set(eventName, listener);
-    return this;
-  }
-  close(status: unknown, signal: unknown): void {
-    const listener = this.#listeners.get("close");
-    if (listener === undefined) throw new Error("Expected a close listener");
-    listener(status, signal);
-  }
-  fail(): void {
-    const listener = this.#listeners.get("error");
-    if (listener === undefined) throw new Error("Expected an error listener");
-    listener(new Error("untrusted child failure"));
-  }
 }
 function coverageSummary(sources: readonly string[]): string {
   return `{"total":${fullSummaryMetrics},${sources
@@ -388,43 +367,38 @@ test("sanitizes Bun Node shim environment without reordering unaffected entries"
     PATH: "/first:/second:/var/tmp/bun-node-xyz:/third",
   });
 });
-test("Node adapter uses fixed report readers, sanitized environment, and a no-shell child port", async () => {
-  const child = new TestChild();
-  const childPort = createNodeReleaseCoverageChildPort(() => child);
+test("Node adapter uses fixed report readers and sanitized environment", async () => {
   const dependencies = createNodeReleaseCoverageDependencies(
     repoRoot,
     { NODE: "bad", PATH: process.env["PATH"] ?? "" },
     "/tmp",
-    childPort,
+    () => Promise.resolve({ signal: undefined, status: 0 }),
   );
-  const result = dependencies.runChild({
-    argv: ["node", "--version"],
-    cwd: repoRoot,
-    env: dependencies.environment,
-  });
-  child.close(0, undefined);
-  expect(await result).toEqual({ signal: undefined, status: 0 });
   expect(dependencies.environment).toEqual({ PATH: process.env["PATH"] ?? "" });
-  const signalChild = new TestChild();
-  const signaledPort = createNodeReleaseCoverageChildPort(() => signalChild);
-  const signaled = signaledPort({ argv: ["node"], cwd: repoRoot, env: dependencies.environment });
-  signalChild.close(undefined, "SIGTERM");
-  expect(await signaled).toEqual({
-    signal: "SIGTERM",
-    status: undefined,
-  });
-  const failedChild = new TestChild();
-  const failedPort = createNodeReleaseCoverageChildPort(() => failedChild);
-  const failed = failedPort({ argv: ["node"], cwd: repoRoot, env: dependencies.environment });
-  failedChild.fail();
-  await expect(failed).rejects.toThrow("coverage child failed");
-  await expect(childPort({ argv: [], cwd: repoRoot, env: dependencies.environment })).rejects.toThrow(
-    "invalid coverage child command",
-  );
   await invokeReader(dependencies.readUnitCoverageSummary);
   await invokeReader(dependencies.readUnitLcov);
   await invokeReader(dependencies.readE2eCoverageSummary);
   await invokeReader(dependencies.readE2eLcov);
+});
+test("sealed release child runner accepts only approved coverage tags", async () => {
+  const levels: string[] = [];
+  const runner = createNodeReleaseCoverageGateRunner((level) => {
+    levels.push(level);
+    return Promise.resolve();
+  });
+  await expect(runner({ argv: ["unknown"], cwd: repoRoot, env: {} })).rejects.toThrow(
+    "invalid coverage child command",
+  );
+  await expect(runner({ argv: ["release-coverage-unit"], cwd: repoRoot, env: {} })).resolves.toEqual({
+    signal: undefined,
+    status: 0,
+  });
+  await expect(runner({ argv: ["release-coverage-e2e"], cwd: repoRoot, env: {} })).resolves.toEqual({
+    signal: undefined,
+    status: 0,
+  });
+  expect(levels).toEqual(["unit", "e2e"]);
+  expect(typeof createNodeReleaseCoverageGateRunner()).toBe("function");
 });
 async function invokeReader(reader: () => Promise<string>): Promise<void> {
   try {
@@ -433,16 +407,6 @@ async function invokeReader(reader: () => Promise<string>): Promise<void> {
     return;
   }
 }
-test("release coverage child adapter preserves unsuccessful statuses for the orchestrator", async () => {
-  const child = new TestChild();
-  const childPort = createNodeReleaseCoverageChildPort(() => child);
-  const result = childPort({ argv: ["node"], cwd: repoRoot, env: {} });
-  child.close(1, undefined);
-  expect(await result).toEqual({
-    signal: undefined,
-    status: 1,
-  });
-});
 test("release coverage command factory runs the real parser and orchestrator", async () => {
   const current = fixture();
   await createReleaseCoverageCommand(["--level=unit"], current.dependencies)();

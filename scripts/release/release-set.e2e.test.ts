@@ -4,7 +4,13 @@ import path from "node:path";
 
 import { expect, test } from "vitest";
 
-import { canonicalJson, formatSha256Sidecar, sha256Hex, type ReleaseManifestV1 } from "./release-contract";
+import {
+  canonicalJson,
+  formatSha256Sidecar,
+  sha256Hex,
+  type ReleaseManifestV1,
+  type ReleaseManifestV2,
+} from "./release-contract";
 import { runReleaseVerifyCli, verifyPublishedReleaseSet } from "./release-artifact-verifier";
 import {
   canonicalReleaseSetInputs,
@@ -79,8 +85,8 @@ function createReleaseSetAssemblyDependencies(
     repositoryRoot: "/repo",
     temporaryRoot: "/private",
     toolchain: {
-      bunVersion: (): Promise<string> => Promise.resolve("1.3.14"),
-      nodeVersion: (): Promise<string> => Promise.resolve("24.19.0"),
+      bunVersion: (): Promise<string> => Promise.resolve("1.4.2"),
+      nodeVersion: (): Promise<string> => Promise.resolve("v24.21.0"),
     },
   };
 }
@@ -88,8 +94,49 @@ function createReleaseSetAssemblyDependencies(
 function input(app: "bot" | "config-search"): ReleaseSetInput {
   const readme = text.encode(app);
   const executable = text.encode(`${app}-binary`);
-  const innerManifest: ReleaseManifestV1 = {
+  const innerManifest: ReleaseManifestV2 = {
     app: app,
+    commit: "a".repeat(40),
+    configuration: { embedded: false, external: true, runtimeRootEnvironment: "MM_CRYPTO_BOT_RUNTIME_ROOT" },
+    lockfileSha256: "b".repeat(64),
+    payloads: [
+      { bytes: readme.length, mode: "0644", path: "README.md", sha256: sha256Hex(readme) },
+      {
+        bytes: executable.length,
+        mode: "0755",
+        path: `bin/mm-crypto-bot-${app}`,
+        sha256: sha256Hex(executable),
+      },
+    ],
+    schema: "mm-crypto-bot.release-manifest/v2",
+    sourceDateEpoch: 1_788_199_914,
+    target: { arch: "x64", bunTarget: "bun-linux-x64", os: "linux" },
+    toolchain: { bun: "1.4.2", nodeMetadata: "24.21.0" },
+    version: "0.1.0",
+  };
+  const zipBytes = encodeStoreZip(
+    [
+      { bytes: readme, mode: 0o644, path: "README.md" },
+      { bytes: executable, mode: 0o755, path: `bin/mm-crypto-bot-${app}` },
+      { bytes: text.encode(canonicalJson(innerManifest)), mode: 0o644, path: "manifest.json" },
+    ],
+    innerManifest.sourceDateEpoch,
+  );
+  return {
+    application: app,
+    innerManifest,
+    sidecarBytes: text.encode(
+      formatSha256Sidecar(sha256Hex(zipBytes), `mm-crypto-bot-${app}-0.1.0-bun-linux-x64.zip`),
+    ),
+    zipBytes,
+  };
+}
+
+function historicInput(app: "bot" | "config-search") {
+  const readme = text.encode(app);
+  const executable = text.encode(`${app}-binary`);
+  const innerManifest: ReleaseManifestV1 = {
+    app,
     commit: "a".repeat(40),
     configuration: { embedded: false, external: true, runtimeRootEnvironment: "MM_CRYPTO_BOT_RUNTIME_ROOT" },
     lockfileSha256: "b".repeat(64),
@@ -225,7 +272,7 @@ test("rejects invalid release-set inputs and identity drift before archive publi
     { sourceDateEpoch: 1_788_199_916 },
     { version: "0.1.1" },
     { target: { arch: "x64", bunTarget: "wrong", os: "linux" } },
-    { toolchain: { bun: "1.3.15", nodeMetadata: "24.19.0" } },
+    { toolchain: { bun: "1.4.3", nodeMetadata: "24.21.0" } },
   ] as const) {
     expect(() => {
       Reflect.apply(createReleaseSetManifest, undefined, [
@@ -262,6 +309,18 @@ test("rejects a divergent supplied manifest before candidate creation or publica
   expect(ledger.mkdtempCalls).toEqual([]);
   expect(ledger.writes).toEqual([]);
   expect(ledger.privateDirectoryRemovals).toEqual([]);
+});
+
+test("rejects a verified historic V1 inner archive before any candidate or public output", async () => {
+  const ledger = createCandidateAssemblyOperationLedger();
+  await expect(
+    Reflect.apply(assembleReleaseSetCandidate, undefined, [
+      createReleaseSetAssemblyDependencies("/private/release-set-candidate-valid", ledger),
+      [historicInput("bot"), input("config-search")],
+    ]),
+  ).rejects.toThrow("release-set authenticated manifest mismatch");
+  expect(ledger.mkdtempCalls).toEqual([]);
+  expect(ledger.writes).toEqual([]);
 });
 
 test("rejects an accessor-backed release-set input before candidate creation or publication-capable output", async () => {

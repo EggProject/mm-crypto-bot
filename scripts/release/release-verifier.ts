@@ -1,12 +1,16 @@
 import {
   canonicalJson,
+  legacyRequiredBunVersion,
+  legacyRequiredNodeMetadataVersion,
   parseSha256Sidecar,
   releaseVersion,
   requiredBunVersion,
   requiredNodeMetadataVersion,
   sha256Hex,
   type ReleaseApplication as ReleaseApp,
+  type ReleaseManifest,
   type ReleaseManifestV1,
+  type ReleaseManifestV2,
   type ReleasePayload,
   type ReleaseVerificationInput,
 } from "./release-contract";
@@ -34,7 +38,17 @@ const targetKeys = ["arch", "bunTarget", "os"];
 const toolchainKeys = ["bun", "nodeMetadata"];
 const configKeys = ["embedded", "external", "runtimeRootEnvironment"];
 
-export function verifyReleaseArchive(input: ReleaseVerificationInput): Promise<ReleaseManifestV1> {
+interface ParsedManifestBase {
+  readonly app: ReleaseApp;
+  readonly commit: string;
+  readonly configuration: ReleaseManifest["configuration"];
+  readonly lockfileSha256: string;
+  readonly payloads: readonly ReleasePayload[];
+  readonly sourceDateEpoch: number;
+  readonly target: ReleaseManifest["target"];
+}
+
+export function verifyReleaseArchive(input: ReleaseVerificationInput): Promise<ReleaseManifest> {
   return Promise.try(() => {
     const safeInput = readInput(input);
     verifySidecar(safeInput);
@@ -69,9 +83,8 @@ function readInput(value: unknown): SafeInput {
       typeof zipBasename !== "string" ||
       !(sidecarBytes instanceof Uint8Array) ||
       !(zipBytes instanceof Uint8Array)
-    ) {
+    )
       throw invalid("input");
-    }
     return Object.freeze({
       sidecarBytes: new Uint8Array(sidecarBytes),
       zipBasename,
@@ -85,9 +98,8 @@ function readInput(value: unknown): SafeInput {
 function verifySidecar(input: SafeInput): void {
   try {
     const sidecar = parseSha256Sidecar(input.sidecarBytes);
-    if (sidecar.zipBasename !== input.zipBasename || sidecar.sha256 !== sha256Hex(input.zipBytes)) {
+    if (sidecar.zipBasename !== input.zipBasename || sidecar.sha256 !== sha256Hex(input.zipBytes))
       throw new Error("mismatch");
-    }
   } catch {
     throw invalid("sidecar");
   }
@@ -104,9 +116,8 @@ function parseArchive(zipBytes: Uint8Array): ParsedArchive {
       (parsed.entries[1]?.path !== "bin/mm-crypto-bot-bot" &&
         parsed.entries[1]?.path !== "bin/mm-crypto-bot-config-search") ||
       parsed.entries[2]?.path !== "manifest.json"
-    ) {
+    )
       throw new Error("invalid layout");
-    }
     return Object.freeze({
       entries: parsed.entries,
       manifest,
@@ -120,15 +131,11 @@ function parseArchive(zipBytes: Uint8Array): ParsedArchive {
 function readManifest(
   manifestBytes: Uint8Array,
   timestamp: { readonly date: number; readonly time: number },
-): ReleaseManifestV1 {
+): ReleaseManifest {
   let parsed: unknown;
   try {
-    const text = decoder.decode(manifestBytes);
-    parsed = JSON.parse(text);
-    const canonicalBytes = encoder.encode(canonicalJson(parsed));
-    if (!areSameBytes(canonicalBytes, manifestBytes)) {
-      throw new Error("noncanonical");
-    }
+    parsed = JSON.parse(decoder.decode(manifestBytes));
+    if (!areSameBytes(encoder.encode(canonicalJson(parsed)), manifestBytes)) throw new Error("noncanonical");
   } catch {
     throw invalid("manifest");
   }
@@ -137,8 +144,56 @@ function readManifest(
   return manifest;
 }
 
-function validateManifest(value: unknown): ReleaseManifestV1 {
+function validateManifest(value: unknown): ReleaseManifest {
   if (!hasExactDataProperties(value, manifestKeys)) throw invalid("manifest");
+  switch (value["schema"]) {
+    case "mm-crypto-bot.release-manifest/v1": {
+      return validateManifestV1(value);
+    }
+    case "mm-crypto-bot.release-manifest/v2": {
+      return validateManifestV2(value);
+    }
+    default: {
+      throw invalid("manifest");
+    }
+  }
+}
+
+function validateManifestV1(value: Record<string, unknown>): ReleaseManifestV1 {
+  const base = validateManifestBase(value);
+  if (!hasExactDataProperties(value["toolchain"], toolchainKeys)) throw invalid("manifest");
+  const toolchain = value["toolchain"];
+  if (
+    toolchain["bun"] !== legacyRequiredBunVersion ||
+    toolchain["nodeMetadata"] !== legacyRequiredNodeMetadataVersion
+  )
+    throw invalid("manifest");
+  return Object.freeze({
+    ...base,
+    schema: "mm-crypto-bot.release-manifest/v1",
+    toolchain: Object.freeze({
+      bun: legacyRequiredBunVersion,
+      nodeMetadata: legacyRequiredNodeMetadataVersion,
+    }),
+    version: releaseVersion,
+  });
+}
+
+function validateManifestV2(value: Record<string, unknown>): ReleaseManifestV2 {
+  const base = validateManifestBase(value);
+  if (!hasExactDataProperties(value["toolchain"], toolchainKeys)) throw invalid("manifest");
+  const toolchain = value["toolchain"];
+  if (toolchain["bun"] !== requiredBunVersion || toolchain["nodeMetadata"] !== requiredNodeMetadataVersion)
+    throw invalid("manifest");
+  return Object.freeze({
+    ...base,
+    schema: "mm-crypto-bot.release-manifest/v2",
+    toolchain: Object.freeze({ bun: requiredBunVersion, nodeMetadata: requiredNodeMetadataVersion }),
+    version: releaseVersion,
+  });
+}
+
+function validateManifestBase(value: Record<string, unknown>): ParsedManifestBase {
   const app = value["app"];
   const commit = value["commit"];
   const lockfileSha256 = value["lockfileSha256"];
@@ -146,82 +201,65 @@ function validateManifest(value: unknown): ReleaseManifestV1 {
   if (
     typeof sourceDateEpoch !== "number" ||
     typeof commit !== "string" ||
-    typeof lockfileSha256 !== "string"
-  ) {
-    throw invalid("manifest");
-  }
-  if (
+    typeof lockfileSha256 !== "string" ||
     (app !== "bot" && app !== "config-search") ||
-    value["schema"] !== "mm-crypto-bot.release-manifest/v1" ||
     value["version"] !== releaseVersion ||
     !commitPattern.test(commit) ||
     !sha256Pattern.test(lockfileSha256) ||
     !Number.isSafeInteger(sourceDateEpoch)
-  ) {
+  )
     throw invalid("manifest");
-  }
   const target = value["target"];
-  const toolchain = value["toolchain"];
-  if (!hasExactDataProperties(target, targetKeys) || !hasExactDataProperties(toolchain, toolchainKeys)) {
-    throw invalid("manifest");
-  }
   const config = value["configuration"];
-  if (!hasExactDataProperties(config, configKeys)) {
-    throw invalid("manifest");
-  }
   const payloadValues = value["payloads"];
-  if (!Array.isArray(payloadValues)) throw invalid("manifest");
   if (
+    !hasExactDataProperties(target, targetKeys) ||
+    !hasExactDataProperties(config, configKeys) ||
+    !Array.isArray(payloadValues) ||
     target["arch"] !== "x64" ||
     target["bunTarget"] !== "bun-linux-x64" ||
     target["os"] !== "linux" ||
-    toolchain["bun"] !== requiredBunVersion ||
-    toolchain["nodeMetadata"] !== requiredNodeMetadataVersion ||
     config["embedded"] !== false ||
     config["external"] !== true ||
     config["runtimeRootEnvironment"] !== "MM_CRYPTO_BOT_RUNTIME_ROOT"
-  ) {
+  )
     throw invalid("manifest");
-  }
-  const payloads = payloadValues.map((payload) => validatePayload(payload, app));
   return Object.freeze({
     app,
     commit,
+    lockfileSha256,
+    sourceDateEpoch,
     configuration: Object.freeze({
       embedded: false,
       external: true,
       runtimeRootEnvironment: "MM_CRYPTO_BOT_RUNTIME_ROOT",
     }),
-    lockfileSha256,
-    payloads: Object.freeze(payloads),
-    schema: "mm-crypto-bot.release-manifest/v1",
-    sourceDateEpoch,
+    payloads: Object.freeze(payloadValues.map((payload) => validatePayload(payload, app))),
     target: Object.freeze({ arch: "x64", bunTarget: "bun-linux-x64", os: "linux" }),
-    toolchain: Object.freeze({ bun: requiredBunVersion, nodeMetadata: requiredNodeMetadataVersion }),
-    version: releaseVersion,
   });
 }
 
 function validatePayload(value: unknown, app: ReleaseApp): ReleasePayload {
   if (!hasExactDataProperties(value, payloadKeys)) throw invalid("payload");
-  const path = value["path"];
+  const payloadPath = value["path"];
   const mode = value["mode"];
   const byteCount = value["bytes"];
   const sha256 = value["sha256"];
-  if (typeof byteCount !== "number" || typeof sha256 !== "string") throw invalid("payload");
   const executablePath = app === "bot" ? "bin/mm-crypto-bot-bot" : "bin/mm-crypto-bot-config-search";
   if (
-    (path !== "README.md" && path !== executablePath) ||
+    typeof byteCount !== "number" ||
+    typeof sha256 !== "string" ||
+    (payloadPath !== "README.md" && payloadPath !== executablePath) ||
     (mode !== "0644" && mode !== "0755") ||
-    (path === "README.md" && mode !== "0644") ||
-    (path === executablePath && mode !== "0755") ||
+    (payloadPath === "README.md" && mode !== "0644") ||
+    (payloadPath === executablePath && mode !== "0755") ||
     !Number.isSafeInteger(byteCount) ||
     byteCount < 0 ||
     !sha256Pattern.test(sha256)
-  ) {
+  )
     throw invalid("payload");
-  }
-  if (path === "README.md") return Object.freeze({ bytes: byteCount, mode: "0644", path, sha256 });
+  if (payloadPath === "README.md")
+    return Object.freeze({ bytes: byteCount, mode: "0644", path: payloadPath, sha256 });
   return Object.freeze({ bytes: byteCount, mode: "0755", path: executablePath, sha256 });
 }
 
@@ -236,7 +274,7 @@ function verifyTimestamp(epoch: number, timestamp: { readonly date: number; read
 
 function verifyArchiveLayout(
   entries: readonly ParsedStoreZipEntry[],
-  manifest: ReleaseManifestV1,
+  manifest: ReleaseManifest,
   zipBasename: string,
 ): void {
   const executablePath = `bin/mm-crypto-bot-${manifest.app}`;
@@ -244,14 +282,13 @@ function verifyArchiveLayout(
   if (
     entries.length !== expectedPaths.length ||
     entries.some((entry, index) => entry.path !== expectedPaths.at(index))
-  ) {
+  )
     throw invalid("archive");
-  }
-  const expectedBasename = `mm-crypto-bot-${manifest.app}-${releaseVersion}-bun-linux-x64.zip`;
-  if (expectedBasename !== zipBasename) throw invalid("archive");
+  if (`mm-crypto-bot-${manifest.app}-${releaseVersion}-bun-linux-x64.zip` !== zipBasename)
+    throw invalid("archive");
 }
 
-function verifyPayloads(manifest: ReleaseManifestV1, entries: readonly ParsedStoreZipEntry[]): void {
+function verifyPayloads(manifest: ReleaseManifest, entries: readonly ParsedStoreZipEntry[]): void {
   const executablePath = `bin/mm-crypto-bot-${manifest.app}`;
   const expected = [
     { mode: "0644", path: "README.md" },
@@ -268,19 +305,36 @@ function verifyPayloads(manifest: ReleaseManifestV1, entries: readonly ParsedSto
       payload.mode !== expectation.mode ||
       payload.bytes !== entry.bytes.length ||
       payload.sha256 !== sha256Hex(entry.bytes)
-    ) {
+    )
       throw invalid("payload");
-    }
   }
 }
 
-function freezeManifest(manifest: ReleaseManifestV1): ReleaseManifestV1 {
+function freezeManifest(manifest: ReleaseManifest): ReleaseManifest {
+  if (manifest.schema === "mm-crypto-bot.release-manifest/v1") return freezeManifestV1(manifest);
+  return freezeManifestV2(manifest);
+}
+
+function freezeManifestV1(manifest: ReleaseManifestV1): ReleaseManifestV1 {
   return Object.freeze({
     ...manifest,
     configuration: Object.freeze({ ...manifest.configuration }),
     payloads: Object.freeze(manifest.payloads.map((payload) => Object.freeze({ ...payload }))),
     target: Object.freeze({ ...manifest.target }),
-    toolchain: Object.freeze({ ...manifest.toolchain }),
+    toolchain: Object.freeze({
+      bun: legacyRequiredBunVersion,
+      nodeMetadata: legacyRequiredNodeMetadataVersion,
+    }),
+  });
+}
+
+function freezeManifestV2(manifest: ReleaseManifestV2): ReleaseManifestV2 {
+  return Object.freeze({
+    ...manifest,
+    configuration: Object.freeze({ ...manifest.configuration }),
+    payloads: Object.freeze(manifest.payloads.map((payload) => Object.freeze({ ...payload }))),
+    target: Object.freeze({ ...manifest.target }),
+    toolchain: Object.freeze({ bun: requiredBunVersion, nodeMetadata: requiredNodeMetadataVersion }),
   });
 }
 
@@ -294,9 +348,8 @@ function hasExactDataProperties(
   if (
     keys.length !== expectedKeys.length ||
     keys.some((key) => typeof key !== "string" || !expectedKeys.includes(key))
-  ) {
+  )
     return false;
-  }
   return keys.every((key) => {
     const descriptor = Object.getOwnPropertyDescriptor(value, String(key));
     return descriptor !== undefined && "value" in descriptor;

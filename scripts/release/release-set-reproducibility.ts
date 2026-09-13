@@ -7,25 +7,22 @@ import {
 } from "./release-set-publication";
 import { verifyPrivateReleaseCandidate } from "./release-private-candidate-reproducibility";
 import { smokeVerifiedRelease } from "./release-smoke";
-import type { ReleaseApplication as ReleaseApp } from "./release-contract";
 import type { ReleaseDependencies } from "./release-ports";
+import type { ReleaseSetInput } from "./release-set-contract";
 
 export async function assertReproducibleReleaseSet(input: {
   readonly releaseDependencies: ReleaseDependencies;
   readonly publicationDependencies: ReleaseSetPublicationDependencies;
   readonly publicationRoot: string;
 }): Promise<ReleasePublicationOutcome> {
-  const snapshots: {
-    application: ReleaseApp;
-    innerManifest: Awaited<ReturnType<typeof verifyPrivateReleaseCandidate>>["manifest"];
-    sidecarBytes: Uint8Array;
-    zipBytes: Uint8Array;
-  }[] = [];
+  const snapshots: ReleaseSetInput[] = [];
   for (const app of ["bot", "config-search"] as const) {
     const first = await assembleRelease(input.releaseDependencies, app);
     let second: Awaited<ReturnType<typeof assembleRelease>> | undefined;
     try {
       const one = await verifyPrivateReleaseCandidate(input.releaseDependencies, first.candidate);
+      if (one.manifest.schema !== "mm-crypto-bot.release-manifest/v2")
+        throw new Error("release-set reproducibility mismatch");
       second = await assembleRelease(input.releaseDependencies, app);
       const two = await verifyPrivateReleaseCandidate(input.releaseDependencies, second.candidate);
       if (!isSameBytes(one.zipBytes, two.zipBytes) || !isSameBytes(one.sidecarBytes, two.sidecarBytes))

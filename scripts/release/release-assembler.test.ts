@@ -61,8 +61,8 @@ describe("release assembly", () => {
       [{ status: " M apps/bot/src/index.ts\n" }, "clean Git worktree"],
       [{ commit: "A".repeat(40) }, "full lowercase Git commit"],
       [{ epoch: "1788199915.5" }, "Git commit epoch"],
-      [{ bunVersion: "1.3.13" }, "Bun 1.3.14"],
-      [{ nodeVersion: "v24.19.1" }, "raw Node CLI v24.19.0"],
+      [{ bunVersion: "1.4.1" }, "Bun 1.4.2"],
+      [{ nodeVersion: "v24.21.1" }, "raw Node CLI v24.21.0"],
     ];
 
     for (const [options, message] of scenarios) {
@@ -74,16 +74,16 @@ describe("release assembly", () => {
   });
 
   test("requires the exact raw Node CLI version spelling", async () => {
-    const accepted = fixture({ nodeVersion: "v24.19.0" });
+    const accepted = fixture({ nodeVersion: "v24.21.0" });
     await expect(assertReleasePreconditions(accepted.dependencies)).resolves.toEqual({
       commit: "a".repeat(40),
       lockfileSha256: "3d0abe3e8f9631c12a42e96531a6a0727a4752fb15508ebf30dca059607f498d",
       sourceDateEpoch: 1_788_199_915,
     });
 
-    for (const nodeVersion of ["24.19.0", "v24.19.1", "v24.19.0-extra"]) {
+    for (const nodeVersion of ["24.21.0", "v24.21.1", "v24.21.0-extra"]) {
       const rejected = fixture({ nodeVersion });
-      await expect(assembleRelease(rejected.dependencies, "bot")).rejects.toThrow("raw Node CLI v24.19.0");
+      await expect(assembleRelease(rejected.dependencies, "bot")).rejects.toThrow("raw Node CLI v24.21.0");
       expect(rejected.compilerCalls).toEqual([]);
     }
   });
@@ -92,13 +92,13 @@ describe("release assembly", () => {
     const scenarios: readonly [(current: Fixture) => void, string][] = [
       [
         (current) => {
-          current.fileSystem.addFile(`${repoRoot}/package.json`, rootPackageBytes("bun@1.3.13"));
+          current.fileSystem.addFile(`${repoRoot}/package.json`, rootPackageBytes("bun@1.4.1"));
         },
         "root package.json packageManager",
       ],
       [
         (current) => {
-          current.fileSystem.addFile(`${repoRoot}/package.json`, rootPackageBytes(undefined, "1.3.13"));
+          current.fileSystem.addFile(`${repoRoot}/package.json`, rootPackageBytes(undefined, "1.4.1"));
         },
         "root package.json engines.bun",
       ],
@@ -106,7 +106,7 @@ describe("release assembly", () => {
         (current) => {
           current.fileSystem.addFile(
             `${repoRoot}/package.json`,
-            rootPackageBytes(undefined, undefined, "24.19.1"),
+            rootPackageBytes(undefined, undefined, "24.21.1"),
           );
         },
         "root package.json engines.node",
@@ -115,7 +115,7 @@ describe("release assembly", () => {
         (current) => {
           current.fileSystem.addFile(
             `${repoRoot}/package.json`,
-            text.encode('{"engines":{"bun":1,"node":"24.19.0"},"packageManager":"bun@1.3.14"}'),
+            text.encode('{"engines":{"bun":1,"node":"24.21.0"},"packageManager":"bun@1.4.2"}'),
           );
         },
         "root package.json engines.bun",
@@ -148,14 +148,14 @@ describe("release assembly", () => {
         (current) => {
           current.fileSystem.addFile(
             `${repoRoot}/package.json`,
-            text.encode('{"packageManager":"bun@1.3.14"}'),
+            text.encode('{"packageManager":"bun@1.4.2"}'),
           );
         },
         "engines must be an object",
       ],
       [
         (current) => {
-          current.fileSystem.addFile(`${repoRoot}/.bun-version`, text.encode("1.3.13\n"));
+          current.fileSystem.addFile(`${repoRoot}/.bun-version`, text.encode("1.4.1\n"));
         },
         ".bun-version",
       ],
@@ -179,7 +179,7 @@ describe("release assembly", () => {
       ],
       [
         (current) => {
-          current.fileSystem.addFile(`${repoRoot}/.nvmrc`, text.encode("24.19.1\n"));
+          current.fileSystem.addFile(`${repoRoot}/.nvmrc`, text.encode("24.21.1\n"));
         },
         ".nvmrc",
       ],

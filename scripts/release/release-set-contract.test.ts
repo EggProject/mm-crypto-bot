@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { canonicalJson, formatSha256Sidecar, sha256Hex, type ReleaseManifestV1 } from "./release-contract";
+import { canonicalJson, formatSha256Sidecar, sha256Hex, type ReleaseManifestV2 } from "./release-contract";
 import {
   canonicalReleaseSetInputs,
   canonicalReleaseSetManifestBytes,
@@ -8,6 +8,7 @@ import {
   deriveReleaseSetDestination,
   releaseSetArchiveBasename,
   releaseSetCandidatePrefix,
+  releaseSetManifestGeneration,
   type ReleaseSetInput,
 } from "./release-set-contract";
 
@@ -15,16 +16,16 @@ const text = new TextEncoder();
 
 function input(app: "bot" | "config-search"): ReleaseSetInput {
   const zipBytes = text.encode(`inner-${app}`);
-  const innerManifest: ReleaseManifestV1 = {
+  const innerManifest: ReleaseManifestV2 = {
     app: app,
     commit: "a".repeat(40),
     configuration: { embedded: false, external: true, runtimeRootEnvironment: "MM_CRYPTO_BOT_RUNTIME_ROOT" },
     lockfileSha256: "b".repeat(64),
     payloads: [],
-    schema: "mm-crypto-bot.release-manifest/v1",
+    schema: "mm-crypto-bot.release-manifest/v2",
     sourceDateEpoch: 1_788_199_914,
     target: { arch: "x64", bunTarget: "bun-linux-x64", os: "linux" },
-    toolchain: { bun: "1.3.14", nodeMetadata: "24.19.0" },
+    toolchain: { bun: "1.4.2", nodeMetadata: "24.21.0" },
     version: "0.1.0",
   };
   return {
@@ -48,6 +49,7 @@ test("canonicalizes input permutations into immutable bot then config-search rec
   expect(canonicalReleaseSetInputs([search, bot])).toEqual([bot, search]);
   expect(Object.isFrozen(left)).toBe(true);
   expect(Object.isFrozen(left.applications)).toBe(true);
+  expect(left.schema).toBe("mm-crypto-bot.release-set-manifest/v2");
 });
 
 test("derives the only public destination from the trusted root", () => {
@@ -55,6 +57,27 @@ test("derives the only public destination from the trusted root", () => {
     `/trusted-publication/0.1.0/bun-linux-x64/${releaseSetArchiveBasename}`,
   );
   expect(releaseSetCandidatePrefix).toBe("release-set-candidate-");
+});
+
+test("derives release-set generation only from exact paired schema contracts", () => {
+  expect(
+    releaseSetManifestGeneration(
+      "mm-crypto-bot.release-set-manifest/v1",
+      "mm-crypto-bot.release-manifest/v1",
+    ),
+  ).toBe("v1");
+  expect(
+    releaseSetManifestGeneration(
+      "mm-crypto-bot.release-set-manifest/v2",
+      "mm-crypto-bot.release-manifest/v2",
+    ),
+  ).toBe("v2");
+  expect(() =>
+    releaseSetManifestGeneration(
+      "mm-crypto-bot.release-set-manifest/v1",
+      "mm-crypto-bot.release-manifest/v2",
+    ),
+  ).toThrow("generation mismatch");
 });
 
 test("rejects incomplete, duplicate, byte-invalid, and mismatched application inputs", () => {

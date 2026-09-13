@@ -1,7 +1,6 @@
-import { spawn as nodeSpawn } from "node:child_process";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { runReleaseCoverageNodeGate } from "./release-coverage-node-gate";
 
 export type ReleaseCoverageLevel = "unit" | "e2e" | "all";
 type CoverageLevel = Exclude<ReleaseCoverageLevel, "all">;
@@ -31,20 +30,10 @@ export interface ReleaseCoverageEntrypointDependencies {
   readonly writeStderr: (text: string) => void;
 }
 
-export interface RawNodeChild {
-  once(eventName: string, listener: (...values: unknown[]) => void): RawNodeChild;
-}
-
-export type RawNodeSpawn = (
-  executable: string,
-  arguments_: readonly string[],
-  options: {
-    readonly cwd: string;
-    readonly env: Readonly<Record<string, string>>;
-    readonly shell: false;
-    readonly stdio: "ignore";
-  },
-) => RawNodeChild;
+export type ReleaseCoverageNodeGateRunner = (
+  level: CoverageLevel,
+  environment: Readonly<Record<string, string>>,
+) => Promise<void>;
 
 const metricNames = ["statements", "branches", "functions", "lines"] as const;
 const releaseDirectoryName = "scripts/release";
@@ -66,6 +55,7 @@ const unitSources = [
   "release-set-publication.ts",
   "release-set-reproducibility.ts",
   "release-ports.ts",
+  "release-coverage-node-gate.ts",
 ] as const;
 const e2eSources = [
   "release-assembler.ts",
@@ -79,6 +69,7 @@ const e2eSources = [
   "release-set-reproducibility.ts",
   "release-ports.ts",
   "release-coverage.ts",
+  "release-coverage-node-gate.ts",
   "release-artifact-verifier.ts",
   "verify.ts",
 ] as const;
@@ -142,32 +133,16 @@ export function createNodeReleaseCoverageDependencies(
   });
 }
 
-export function createNodeReleaseCoverageChildPort(
-  spawn: RawNodeSpawn,
+export function createNodeReleaseCoverageGateRunner(
+  runGate: ReleaseCoverageNodeGateRunner = runReleaseCoverageNodeGate,
 ): ReleaseCoverageDependencies["runChild"] {
-  return (input: ReleaseCoverageChildInput): Promise<unknown> => {
-    const executable = input.argv[0];
-    if (executable === undefined) return Promise.reject(new Error("invalid coverage child command"));
-    return new Promise((resolve, reject) => {
-      const child = spawn(executable, input.argv.slice(1), {
-        cwd: input.cwd,
-        env: input.env,
-        shell: false,
-        stdio: "ignore",
-      });
-      child
-        .once("error", () => {
-          reject(new Error("coverage child failed"));
-        })
-        .once("close", (status, signal) => {
-          resolve(
-            Object.freeze({
-              signal: typeof signal === "string" ? signal : undefined,
-              status: typeof status === "number" ? status : undefined,
-            }),
-          );
-        });
-    });
+  return async (input) => {
+    const gate = input.argv[0];
+    if (gate !== "release-coverage-unit" && gate !== "release-coverage-e2e") {
+      throw new Error("invalid coverage child command");
+    }
+    await runGate(gate === "release-coverage-unit" ? "unit" : "e2e", input.env);
+    return Object.freeze({ signal: undefined, status: 0 });
   };
 }
 
@@ -206,9 +181,7 @@ async function runCoverageLevel(
 }
 
 function coverageCommand(level: CoverageLevel): readonly string[] {
-  const config =
-    level === "unit" ? "scripts/release/vitest.config.ts" : "scripts/release/vitest.e2e.config.ts";
-  return Object.freeze(["node", "node_modules/vitest/vitest.mjs", "run", "--config", config, "--coverage"]);
+  return Object.freeze([`release-coverage-${level}`]);
 }
 
 async function validateCoverageReports(
@@ -463,12 +436,11 @@ function isSafeInteger(value: unknown): value is number {
 }
 
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
-const nodeChildPort = createNodeReleaseCoverageChildPort(nodeSpawn);
 const nodeDependencies = createNodeReleaseCoverageDependencies(
   repoRoot,
   process.env,
-  tmpdir(),
-  nodeChildPort,
+  "/tmp",
+  createNodeReleaseCoverageGateRunner(),
 );
 const runCommand = createReleaseCoverageCommand(process.argv.slice(2), nodeDependencies);
 

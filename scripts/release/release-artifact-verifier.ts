@@ -1,4 +1,4 @@
-import { deriveReleaseSetDestination, type ReleaseSetManifestV1 } from "./release-set-contract";
+import { deriveReleaseSetDestination, type ReleaseSetManifest } from "./release-set-contract";
 import { verifyReleaseSetArchive } from "./release-set-verifier";
 
 export interface ReleaseArtifactReadPort {
@@ -18,7 +18,7 @@ export interface ReleaseVerificationOutput {
 
 export async function verifyPublishedReleaseSet(
   dependencies: ReleaseArtifactVerificationDependencies,
-): Promise<ReleaseSetManifestV1> {
+): Promise<ReleaseSetManifest> {
   const archive = deriveReleaseSetDestination(dependencies.repositoryRoot);
   try {
     const status = await dependencies.fileSystem.lstat(archive);

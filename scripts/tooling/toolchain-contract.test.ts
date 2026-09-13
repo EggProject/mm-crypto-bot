@@ -44,12 +44,23 @@ const assertPathMissing = async (relativePath: string, stat: Lstat = lstat): Pro
   throw new Error(`Expected path to be absent but found: ${relativePath}`);
 };
 
-test("Slice A pins the approved runtime and tooling metadata", async () => {
-  const [manifest, bunfig] = await Promise.all([readRepoFile("package.json"), readRepoFile("bunfig.toml")]);
+test("runtime metadata pins Bun, Node, Bun types, and the CI provisioning exception", async () => {
+  const [manifest, botManifest, configSearchManifest, bunfig, bunVersion, nvmVersion, workflow] =
+    await Promise.all([
+      readRepoFile("package.json"),
+      readRepoFile("apps/bot/package.json"),
+      readRepoFile("apps/config-search/package.json"),
+      readRepoFile("bunfig.toml"),
+      readRepoFile(".bun-version"),
+      readRepoFile(".nvmrc"),
+      readRepoFile(".github/workflows/ci.yml"),
+    ]);
 
   for (const requirement of [
-    '"bun": "1.3.14"',
-    '"node": "24.19.0"',
+    '"bun": "1.4.2"',
+    '"node": "24.21.0"',
+    '"packageManager": "bun@1.4.2"',
+    '"bun-types": "1.4.2"',
     '"@eslint/js": "10.0.1"',
     '"eslint": "10.8.1"',
     '"typescript": "6.0.3"',
@@ -60,6 +71,12 @@ test("Slice A pins the approved runtime and tooling metadata", async () => {
   ]) {
     expect(manifest).toContain(requirement);
   }
+  expect(botManifest).toContain('"@types/bun": "1.4.2"');
+  expect(configSearchManifest).toContain('"@types/bun": "1.4.2"');
+  expect(bunVersion).toBe("1.4.2\n");
+  expect(nvmVersion).toBe("24.21.0\n");
+  expect(workflow).toContain("actions/setup-node@v4");
+  expect(workflow).toContain("node-version-file: .nvmrc");
   expect(bunfig).toContain("exact = true");
 });
 
@@ -209,9 +226,9 @@ test("lint scripts must stay fail-closed against temp reintroduction", async () 
   const expectedPreCommitHookScript =
     "bun --eval 'const { createBunCommandRunner, runPreCommitPipeline } = await import(\"./scripts/tooling/pre-commit-pipeline.ts\"); await runPreCommitPipeline(createBunCommandRunner(Bun.spawn));'";
   const expectedLintHookScript =
-    'bun --eval \'const { createBunGitCommandRunner, createBunProcessCommandRunner, runStagedFileValidation } = await import("./scripts/tooling/staged-file-validation.ts"); await runStagedFileValidation("lint", { runGit: createBunGitCommandRunner(Bun.spawn), runProcess: createBunProcessCommandRunner(Bun.spawn) });\'';
+    'MM_CRYPTO_BOT_NODE_EXECUTABLE="$NVM_BIN/node" MM_CRYPTO_BOT_NODE_PROVENANCE=local bun scripts/tooling/node-executable-protocol.ts --gate=staged-eslint';
   const expectedFormatHookScript =
-    'bun --eval \'const { createBunGitCommandRunner, createBunProcessCommandRunner, runStagedFileValidation } = await import("./scripts/tooling/staged-file-validation.ts"); await runStagedFileValidation("format", { runGit: createBunGitCommandRunner(Bun.spawn), runProcess: createBunProcessCommandRunner(Bun.spawn) });\'';
+    'MM_CRYPTO_BOT_NODE_EXECUTABLE="$NVM_BIN/node" MM_CRYPTO_BOT_NODE_PROVENANCE=local bun scripts/tooling/node-executable-protocol.ts --gate=staged-prettier';
 
   expect(manifest["lint"]).toBe(expectedFullRepoLintScript);
   expect(manifest["format:check"]).toBe(expectedFullRepoFormatScript);

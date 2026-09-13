@@ -21,6 +21,7 @@ const sources = [
   "release-set-publication.ts",
   "release-set-reproducibility.ts",
   "release-ports.ts",
+  "release-coverage-node-gate.ts",
 ] as const;
 const fullJsonMetrics =
   '{"statements":{"total":1,"covered":1,"pct":100},"branches":{"total":1,"covered":1,"pct":100},"functions":{"total":1,"covered":1,"pct":100},"lines":{"total":1,"covered":1,"pct":100}}';

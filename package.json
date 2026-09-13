@@ -5,10 +5,10 @@
   "description": "Bun + Turborepo + TS ultra-strict monorepo scaffold az mm-crypto-bot projekthez",
   "type": "module",
   "engines": {
-    "bun": "1.3.14",
-    "node": "24.19.0"
+    "bun": "1.4.2",
+    "node": "24.21.0"
   },
-  "packageManager": "bun@1.3.14",
+  "packageManager": "bun@1.4.2",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -24,8 +24,8 @@
     "format": "prettier --write --ignore-unknown .",
     "format:check": "prettier --check --ignore-unknown .",
     "lint": "eslint --config eslint.config.js apps packages scripts search-best-config eslint.config.js --max-warnings=0",
-    "lint:hook": "bun --eval 'const { createBunGitCommandRunner, createBunProcessCommandRunner, runStagedFileValidation } = await import(\"./scripts/tooling/staged-file-validation.ts\"); await runStagedFileValidation(\"lint\", { runGit: createBunGitCommandRunner(Bun.spawn), runProcess: createBunProcessCommandRunner(Bun.spawn) });'",
-    "format:hook": "bun --eval 'const { createBunGitCommandRunner, createBunProcessCommandRunner, runStagedFileValidation } = await import(\"./scripts/tooling/staged-file-validation.ts\"); await runStagedFileValidation(\"format\", { runGit: createBunGitCommandRunner(Bun.spawn), runProcess: createBunProcessCommandRunner(Bun.spawn) });'",
+    "lint:hook": "MM_CRYPTO_BOT_NODE_EXECUTABLE=\"$NVM_BIN/node\" MM_CRYPTO_BOT_NODE_PROVENANCE=local bun scripts/tooling/node-executable-protocol.ts --gate=staged-eslint",
+    "format:hook": "MM_CRYPTO_BOT_NODE_EXECUTABLE=\"$NVM_BIN/node\" MM_CRYPTO_BOT_NODE_PROVENANCE=local bun scripts/tooling/node-executable-protocol.ts --gate=staged-prettier",
     "clean:artifacts": "bun --eval 'const { cleanArtifacts } = await import(\"./scripts/tooling/clean-artifacts.ts\"); await cleanArtifacts({ expectedRepositoryRoot: process.cwd(), log: (message) => process.stdout.write(`${message}\\n`), mode: \"inspect\", rootDirectory: process.cwd() });'",
     "clean:artifacts:dry-run": "bun --eval 'const { cleanArtifacts } = await import(\"./scripts/tooling/clean-artifacts.ts\"); await cleanArtifacts({ expectedRepositoryRoot: process.cwd(), log: (message) => process.stdout.write(`${message}\\n`), mode: \"inspect\", rootDirectory: process.cwd() });'",
     "clean:artifacts:trusted": "bun --eval 'const { cleanArtifacts } = await import(\"./scripts/tooling/clean-artifacts.ts\"); await cleanArtifacts({ expectedRepositoryRoot: process.cwd(), log: (message) => process.stdout.write(`${message}\\n`), mode: \"trusted-cleanup\", rootDirectory: process.cwd() });'",
@@ -64,7 +64,7 @@
     "@typescript-eslint/eslint-plugin": "8.67.0",
     "@typescript-eslint/parser": "8.67.0",
     "@vitest/coverage-v8": "4.1.10",
-    "bun-types": "1.3.14",
+    "bun-types": "1.4.2",
     "eslint": "10.8.1",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-security": "4.0.1",

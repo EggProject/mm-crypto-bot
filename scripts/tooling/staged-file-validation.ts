@@ -1,174 +1,63 @@
-export interface GitCommandResult {
-  readonly exitCode: number;
-  readonly stdout: Uint8Array;
-}
+import { spawnSync } from "node:child_process";
 
-export interface ProcessCommandResult {
-  readonly exitCode: number;
-}
+import {
+  assertStagedValidatorSuccess,
+  parseNulDelimitedPaths,
+  parseStagedFileValidationArguments,
+  stagedPathsGitArguments,
+  stagedValidatorCommand,
+  validateStagedRepoPaths,
+  validatedGitOutput,
+  worktreePathsGitArguments,
+  type RawProcessObservation,
+  type StagedFileValidationMode,
+} from "./staged-file-validation-contract.ts";
 
-export type GitCommandRunner = (arguments_: readonly string[]) => Promise<GitCommandResult>;
-export type ProcessCommandRunner = (command: readonly string[]) => Promise<ProcessCommandResult>;
-
-export interface BunGitProcess {
-  readonly exited: Promise<number>;
-  readonly stdout: ReadableStream<Uint8Array>;
-}
-
-export interface BunProcess {
-  readonly exited: Promise<number>;
-}
-
-export type BunGitCommandSpawn = (options: {
-  readonly cmd: readonly string[];
-  readonly stderr: "inherit";
-  readonly stdout: "pipe";
-}) => BunGitProcess;
-
-export type BunProcessCommandSpawn = (options: {
-  readonly cmd: readonly string[];
-  readonly stderr: "inherit";
-  readonly stdout: "inherit";
-}) => BunProcess;
-
-export interface StagedFileValidationDependencies {
-  readonly runGit: GitCommandRunner;
-  readonly runProcess: ProcessCommandRunner;
-}
-
-export type StagedFileValidationMode = "lint" | "format";
-
-const stagedPathsCommand = [
-  "diff",
-  "--cached",
-  "--name-only",
-  "-z",
-  "--no-renames",
-  "--diff-filter=ACMR",
-  "--",
-] as const;
-
-const lintExtensions = new Set(["js", "mjs", "cjs", "ts", "tsx", "mts", "cts"]);
-const decoder = new TextDecoder("utf-8", { fatal: true });
-
-const commandErrorMessage = String;
-
-export function parseNulDelimitedPaths(output: Uint8Array): readonly string[] {
-  let text: string;
-  try {
-    text = decoder.decode(output);
-  } catch (error: unknown) {
-    throw new Error(`Malformed NUL-delimited git path output: ${commandErrorMessage(error)}`, {
-      cause: error,
-    });
-  }
-
-  if (text.length === 0) {
-    return [];
-  }
-
-  if (!text.endsWith("\0")) {
-    throw new Error("Malformed NUL-delimited git path output: missing terminating NUL");
-  }
-
-  const paths = text.slice(0, -1).split("\0");
-  if (paths.some((path) => path.length === 0)) {
-    throw new Error("Malformed NUL-delimited git path output: empty path");
-  }
-
-  return paths;
-}
-
-export function selectLintPaths(paths: readonly string[]): readonly string[] {
-  return paths.filter((path) => {
-    const extension = path.split(".").at(-1);
-    return extension !== undefined && lintExtensions.has(extension);
+function observeProcess(executable: string, argv: readonly string[], cwd: string): RawProcessObservation {
+  const result = spawnSync(executable, argv, { cwd, shell: false, stdio: ["ignore", "pipe", "inherit"] });
+  return Object.freeze({
+    error: result.error,
+    signal: result.signal,
+    status: result.status,
+    stdout: result.stdout,
   });
 }
 
-const runGitPaths = async (
-  label: string,
-  arguments_: readonly string[],
-  runGit: GitCommandRunner,
-): Promise<readonly string[]> => {
-  let result: GitCommandResult;
-  try {
-    result = await runGit(arguments_);
-  } catch (error: unknown) {
-    throw new Error(`Git ${label} command failed to run: ${commandErrorMessage(error)}`, { cause: error });
-  }
-
-  if (result.exitCode !== 0) {
-    throw new Error(`Git ${label} command failed with exit code ${String(result.exitCode)}`);
-  }
-
-  return parseNulDelimitedPaths(result.stdout);
-};
-
-const runValidator = async (
-  mode: StagedFileValidationMode,
-  paths: readonly string[],
-  runProcess: ProcessCommandRunner,
-): Promise<void> => {
-  const selectedPaths = mode === "lint" ? selectLintPaths(paths) : paths;
-  if (selectedPaths.length === 0) {
-    return;
-  }
-
-  const command =
-    mode === "lint"
-      ? ["eslint", "--config", "eslint.config.js", "--max-warnings=0", "--", ...selectedPaths]
-      : ["prettier", "--check", "--ignore-unknown", "--", ...paths];
-
-  let result: ProcessCommandResult;
-  try {
-    result = await runProcess(command);
-  } catch (error: unknown) {
-    throw new Error(
-      `${mode === "lint" ? "Lint" : "Format"} staged-file validation failed to run: ${commandErrorMessage(error)}`,
-      { cause: error },
-    );
-  }
-
-  if (result.exitCode !== 0) {
-    throw new Error(
-      `${mode === "lint" ? "Lint" : "Format"} staged-file validation failed with exit code ${String(result.exitCode)}`,
-    );
-  }
-};
-
 export async function runStagedFileValidation(
   mode: StagedFileValidationMode,
-  dependencies: StagedFileValidationDependencies,
+  cwd = process.cwd(),
 ): Promise<void> {
-  const stagedPaths = await runGitPaths("staged-path", stagedPathsCommand, dependencies.runGit);
-  if (stagedPaths.length === 0) {
-    return;
-  }
-
-  const worktreePaths = await runGitPaths(
-    "worktree comparison",
-    ["diff", "--name-only", "-z", "--", ...stagedPaths],
-    dependencies.runGit,
-  );
+  const stagedObservation = observeProcess("git", stagedPathsGitArguments(), cwd);
+  const stagedOutput = validatedGitOutput("staged-path", stagedObservation);
+  const paths = parseNulDelimitedPaths(stagedOutput);
+  if (paths.length === 0) return;
+  validateStagedRepoPaths(paths);
+  const worktreeObservation = observeProcess("git", worktreePathsGitArguments(paths), cwd);
+  const worktreeOutput = validatedGitOutput("worktree comparison", worktreeObservation);
+  const worktreePaths = parseNulDelimitedPaths(worktreeOutput);
   if (worktreePaths.length > 0) {
     throw new Error(`Staged paths also differ in the worktree: ${worktreePaths.join(", ")}`);
   }
-
-  await runValidator(mode, stagedPaths, dependencies.runProcess);
+  const command = stagedValidatorCommand(mode, paths);
+  if (command === undefined) return;
+  assertStagedValidatorSuccess(mode, observeProcess(command[0], command.slice(1), cwd));
+  await Promise.resolve();
 }
 
-export const createBunGitCommandRunner =
-  (spawn: BunGitCommandSpawn): GitCommandRunner =>
-  async (arguments_) => {
-    const child = spawn({ cmd: ["git", ...arguments_], stderr: "inherit", stdout: "pipe" });
-    const [exitCode, output] = await Promise.all([child.exited, new Response(child.stdout).arrayBuffer()]);
-    return { exitCode, stdout: new Uint8Array(output) };
-  };
+export async function runStagedFileValidationEntrypoint(
+  argv: readonly unknown[],
+  exitCodeTarget: { exitCode: number | string | null | undefined },
+  isMain: boolean,
+): Promise<number | string | null | undefined> {
+  if (!isMain) return exitCodeTarget.exitCode;
+  try {
+    await runStagedFileValidation(parseStagedFileValidationArguments(argv));
+    exitCodeTarget.exitCode = 0;
+  } catch {
+    process.stderr.write("staged-file validation failed\n");
+    exitCodeTarget.exitCode = 1;
+  }
+  return exitCodeTarget.exitCode;
+}
 
-export const createBunProcessCommandRunner =
-  (spawn: BunProcessCommandSpawn): ProcessCommandRunner =>
-  async (command) => {
-    const child = spawn({ cmd: command, stderr: "inherit", stdout: "inherit" });
-    return { exitCode: await child.exited };
-  };
+process.exitCode = await runStagedFileValidationEntrypoint(process.argv.slice(2), process, import.meta.main);

@@ -4,7 +4,7 @@ import {
   canonicalJson,
   sha256Hex,
   type ReleaseApplication as ReleaseApp,
-  type ReleaseManifestV1,
+  type ReleaseManifestV2,
 } from "./release-contract";
 import {
   releaseSetArchiveBasename,
@@ -33,16 +33,19 @@ export async function assembleReleaseSetCandidate(
 ): Promise<ReleaseSetPrivateCandidate> {
   const snapshots = inputs.map((input) => snapshotReleaseSetInput(input));
   const verifiedInputs = await Promise.all(
-    snapshots.map(async (snapshot) =>
-      Object.freeze({
-        manifest: await verifyReleaseArchive({
-          sidecarBytes: snapshot.sidecarBytes,
-          zipBasename: `mm-crypto-bot-${snapshot.application}-0.1.0-bun-linux-x64.zip`,
-          zipBytes: snapshot.zipBytes,
-        }),
+    snapshots.map(async (snapshot) => {
+      const manifest = await verifyReleaseArchive({
+        sidecarBytes: snapshot.sidecarBytes,
+        zipBasename: `mm-crypto-bot-${snapshot.application}-0.1.0-bun-linux-x64.zip`,
+        zipBytes: snapshot.zipBytes,
+      });
+      if (manifest.schema !== "mm-crypto-bot.release-manifest/v2")
+        throw new Error("release-set authenticated manifest mismatch");
+      return Object.freeze({
+        manifest,
         snapshot,
-      }),
-    ),
+      });
+    }),
   );
   const authenticatedInputs = verifiedInputs.map(({ manifest, snapshot }) => {
     assertSourceBytesUnchanged(snapshot);
@@ -131,7 +134,7 @@ function assertSourceBytesUnchanged(snapshot: ReleaseSetInputSnapshot): void {
 
 function withAuthenticatedManifest(
   snapshot: ReleaseSetInputSnapshot,
-  manifest: ReleaseManifestV1,
+  manifest: ReleaseManifestV2,
 ): ReleaseSetInput {
   if (snapshot.suppliedManifestJson !== canonicalJson(manifest)) {
     throw new Error("release-set authenticated manifest mismatch");

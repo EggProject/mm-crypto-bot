@@ -20,8 +20,12 @@ installBotE2EPreloadRuntime(
     installNetworkGuard: installOutboundNetworkGuard,
     mkdir: mkdirSync,
     processId: process.pid,
-    registerBeforeExit: process.once.bind(process, "beforeExit"),
-    registerExit: process.once.bind(process, "exit"),
+    registerBeforeExit: (listener) => {
+      process.once("beforeExit", listener);
+    },
+    registerExit: (listener) => {
+      process.once("exit", listener);
+    },
     repositoryRoot: REPOSITORY_ROOT,
     resolvePath: path.resolve.bind(path),
     writeFile: writeFileSync.bind(undefined),

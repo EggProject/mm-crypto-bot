@@ -9,6 +9,7 @@ import {
   sha256Hex,
   type ReleaseApplication as ReleaseApp,
   type ReleaseManifestV1,
+  type ReleaseManifestV2,
 } from "./release-contract";
 import type { ReleasePrivateDirectory } from "./release-ports";
 
@@ -31,27 +32,43 @@ export type ReleaseSetManifestV1 = Readonly<{
   toolchain: ReleaseManifestV1["toolchain"];
   version: "0.1.0";
 }>;
+export type ReleaseSetManifestV2 = Readonly<{
+  applications: readonly [ReleaseSetAppRecord<"bot">, ReleaseSetAppRecord<"config-search">];
+  commit: string;
+  lockfileSha256: string;
+  schema: "mm-crypto-bot.release-set-manifest/v2";
+  sourceDateEpoch: number;
+  target: ReleaseManifestV2["target"];
+  toolchain: ReleaseManifestV2["toolchain"];
+  version: "0.1.0";
+}>;
+export type ReleaseSetManifest = ReleaseSetManifestV1 | ReleaseSetManifestV2;
+export type ReleaseSetManifestGeneration = "v1" | "v2";
 export { type ReleaseSetAppRecord as ReleaseSetApplicationRecord };
 export type ReleaseSetInput = Readonly<{
   application: ReleaseApp;
-  innerManifest: ReleaseManifestV1;
+  innerManifest: ReleaseManifestV2;
   sidecarBytes: Uint8Array;
   zipBytes: Uint8Array;
 }>;
-export type ReleaseSetArchive = Readonly<{ manifest: ReleaseSetManifestV1; zipBytes: Uint8Array }>;
+export type ReleaseSetArchive = Readonly<{ manifest: ReleaseSetManifestV2; zipBytes: Uint8Array }>;
 export type ReleaseSetPrivateCandidate = Readonly<{
   archivePath: string;
   basename: typeof releaseSetArchiveBasename;
   directory: ReleasePrivateDirectory;
-  manifest: ReleaseSetManifestV1;
+  manifest: ReleaseSetManifestV2;
 }>;
-export type VerifiedReleaseSetArchive = Readonly<ReleaseSetArchive & { verified: true }>;
+export type VerifiedReleaseSetArchive = Readonly<{
+  manifest: ReleaseSetManifest;
+  verified: true;
+  zipBytes: Uint8Array;
+}>;
 
 export function deriveReleaseSetDestination(publicationRoot: string): string {
   return path.join(publicationRoot, releaseVersion, releaseTarget, releaseSetArchiveBasename);
 }
 
-export function createReleaseSetManifest(inputs: readonly ReleaseSetInput[]): ReleaseSetManifestV1 {
+export function createReleaseSetManifest(inputs: readonly ReleaseSetInput[]): ReleaseSetManifestV2 {
   const canonical = canonicalInputs(inputs);
   const first = canonical[0].innerManifest;
   for (const input of canonical) assertCommonIdentity(first, input.innerManifest);
@@ -63,7 +80,7 @@ export function createReleaseSetManifest(inputs: readonly ReleaseSetInput[]): Re
     applications: Object.freeze(records),
     commit: first.commit,
     lockfileSha256: first.lockfileSha256,
-    schema: "mm-crypto-bot.release-set-manifest/v1",
+    schema: "mm-crypto-bot.release-set-manifest/v2",
     sourceDateEpoch: first.sourceDateEpoch,
     target: Object.freeze({ ...first.target }),
     toolchain: Object.freeze({ ...first.toolchain }),
@@ -71,7 +88,7 @@ export function createReleaseSetManifest(inputs: readonly ReleaseSetInput[]): Re
   });
 }
 
-export function canonicalReleaseSetManifestBytes(manifest: ReleaseSetManifestV1): Uint8Array {
+export function canonicalReleaseSetManifestBytes(manifest: ReleaseSetManifest): Uint8Array {
   return new TextEncoder().encode(canonicalJson(manifest));
 }
 
@@ -114,7 +131,7 @@ function recordFor<TApp extends ReleaseApp>(input: ReleaseSetInput, app: TApp): 
   });
 }
 
-function assertCommonIdentity(first: ReleaseManifestV1, next: ReleaseManifestV1): void {
+function assertCommonIdentity(first: ReleaseManifestV2, next: ReleaseManifestV2): void {
   if (
     first.commit !== next.commit ||
     first.lockfileSha256 !== next.lockfileSha256 ||
@@ -129,4 +146,21 @@ function assertCommonIdentity(first: ReleaseManifestV1, next: ReleaseManifestV1)
       })
   )
     throw new Error("release-set identity mismatch");
+}
+
+export function releaseSetManifestGeneration(
+  outerSchema: unknown,
+  innerSchema: unknown,
+): ReleaseSetManifestGeneration {
+  if (
+    outerSchema === "mm-crypto-bot.release-set-manifest/v1" &&
+    innerSchema === "mm-crypto-bot.release-manifest/v1"
+  )
+    return "v1";
+  if (
+    outerSchema === "mm-crypto-bot.release-set-manifest/v2" &&
+    innerSchema === "mm-crypto-bot.release-manifest/v2"
+  )
+    return "v2";
+  throw new Error("release-set manifest generation mismatch");
 }

@@ -29,6 +29,7 @@ const unitSources = [
   "release-set-publication.ts",
   "release-set-reproducibility.ts",
   "release-ports.ts",
+  "release-coverage-node-gate.ts",
 ] as const;
 const e2eSources = [
   "release-assembler.ts",
@@ -42,6 +43,7 @@ const e2eSources = [
   "release-set-reproducibility.ts",
   "release-ports.ts",
   "release-coverage.ts",
+  "release-coverage-node-gate.ts",
   "release-artifact-verifier.ts",
   "verify.ts",
 ] as const;
@@ -128,20 +130,13 @@ function replaceReport(current: Fixture, name: ReportName, report: string): Rele
   return current.dependencies;
 }
 
-const unitCommand = [
-  "node",
-  "node_modules/vitest/vitest.mjs",
-  "run",
-  "--config",
-  "scripts/release/vitest.config.ts",
-  "--coverage",
-];
-const e2eCommand = [...unitCommand.slice(0, 4), "scripts/release/vitest.e2e.config.ts", "--coverage"];
+const unitCommand = ["release-coverage-unit"];
+const e2eCommand = ["release-coverage-e2e"];
 
 describe("release coverage validation boundary", () => {
-  test("runs the exact 17/13 source unions in unit, e2e, and fail-fast all mode", async () => {
-    expect(unitSources).toHaveLength(17);
-    expect(e2eSources).toHaveLength(13);
+  test("runs the exact 18/14 source unions in unit, e2e, and fail-fast all mode", async () => {
+    expect(unitSources).toHaveLength(18);
+    expect(e2eSources).toHaveLength(14);
     expect(new Set(unitSources)).toEqual(new Set(unitSources));
     expect(new Set(e2eSources)).toEqual(new Set(e2eSources));
 

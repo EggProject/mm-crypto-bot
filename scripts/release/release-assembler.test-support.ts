@@ -238,19 +238,15 @@ export interface FixtureOptions {
   readonly status?: string;
 }
 
-export function rootPackageBytes(
-  packageManager = "bun@1.3.14",
-  bun = "1.3.14",
-  node = "24.19.0",
-): Uint8Array {
+export function rootPackageBytes(packageManager = "bun@1.4.2", bun = "1.4.2", node = "24.21.0"): Uint8Array {
   return text.encode(`{"engines":{"bun":"${bun}","node":"${node}"},"packageManager":"${packageManager}"}\n`);
 }
 
 export function fixture(options: FixtureOptions = {}): Fixture {
   const fileSystem = new FakeFileSystem();
   fileSystem.addFile(`${repoRoot}/package.json`, rootPackageBytes());
-  fileSystem.addFile(`${repoRoot}/.bun-version`, text.encode("1.3.14\n"));
-  fileSystem.addFile(`${repoRoot}/.nvmrc`, text.encode("24.19.0\n"));
+  fileSystem.addFile(`${repoRoot}/.bun-version`, text.encode("1.4.2\n"));
+  fileSystem.addFile(`${repoRoot}/.nvmrc`, text.encode("24.21.0\n"));
   fileSystem.addFile(`${repoRoot}/bun.lock`, text.encode("lockfile\n"));
   for (const app of ["bot", "config-search"] as const) {
     fileSystem.addFile(`${repoRoot}/apps/${app}/package.json`, text.encode('{"version":"0.1.0"}\n'));
@@ -279,8 +275,8 @@ export function fixture(options: FixtureOptions = {}): Fixture {
     repositoryRoot: repoRoot,
     temporaryRoot,
     toolchain: {
-      bunVersion: () => Promise.resolve(options.bunVersion ?? "1.3.14"),
-      nodeVersion: () => Promise.resolve(options.nodeVersion ?? "v24.19.0"),
+      bunVersion: () => Promise.resolve(options.bunVersion ?? "1.4.2"),
+      nodeVersion: () => Promise.resolve(options.nodeVersion ?? "v24.21.0"),
     },
   };
   return { compilerCalls, dependencies, fileSystem };

@@ -1,6 +1,12 @@
 import { expect, test } from "vitest";
 
-import { canonicalJson, formatSha256Sidecar, sha256Hex, type ReleaseManifestV1 } from "./release-contract";
+import {
+  canonicalJson,
+  formatSha256Sidecar,
+  sha256Hex,
+  type ReleaseManifestV1,
+  type ReleaseManifestV2,
+} from "./release-contract";
 import { releaseSetCandidatePrefix, type ReleaseSetInput } from "./release-set-contract";
 import { assembleReleaseSetCandidate } from "./release-set-assembler";
 import type { ReleaseDependencies } from "./release-ports";
@@ -10,7 +16,47 @@ const text = new TextEncoder();
 function input(app: "bot" | "config-search"): ReleaseSetInput {
   const readme = text.encode(app);
   const executable = text.encode(`${app}-binary`);
-  const manifest: ReleaseManifestV1 = {
+  const manifest: ReleaseManifestV2 = {
+    app,
+    commit: "a".repeat(40),
+    configuration: { embedded: false, external: true, runtimeRootEnvironment: "MM_CRYPTO_BOT_RUNTIME_ROOT" },
+    lockfileSha256: "b".repeat(64),
+    payloads: [
+      { bytes: readme.length, mode: "0644", path: "README.md", sha256: sha256Hex(readme) },
+      {
+        bytes: executable.length,
+        mode: "0755",
+        path: `bin/mm-crypto-bot-${app}`,
+        sha256: sha256Hex(executable),
+      },
+    ],
+    schema: "mm-crypto-bot.release-manifest/v2",
+    sourceDateEpoch: 1_788_199_914,
+    target: { arch: "x64", bunTarget: "bun-linux-x64", os: "linux" },
+    toolchain: { bun: "1.4.2", nodeMetadata: "24.21.0" },
+    version: "0.1.0",
+  };
+  const zipBytes = encodeStoreZip(
+    [
+      { bytes: readme, mode: 0o644, path: "README.md" },
+      { bytes: executable, mode: 0o755, path: `bin/mm-crypto-bot-${app}` },
+      { bytes: text.encode(canonicalJson(manifest)), mode: 0o644, path: "manifest.json" },
+    ],
+    manifest.sourceDateEpoch,
+  );
+  return {
+    application: app,
+    innerManifest: manifest,
+    sidecarBytes: text.encode(
+      formatSha256Sidecar(sha256Hex(zipBytes), `mm-crypto-bot-${app}-0.1.0-bun-linux-x64.zip`),
+    ),
+    zipBytes,
+  };
+}
+function historicInput(app: "bot" | "config-search") {
+  const readme = text.encode(app);
+  const executable = text.encode(`${app}-binary`);
+  const innerManifest: ReleaseManifestV1 = {
     app,
     commit: "a".repeat(40),
     configuration: { embedded: false, external: true, runtimeRootEnvironment: "MM_CRYPTO_BOT_RUNTIME_ROOT" },
@@ -34,13 +80,13 @@ function input(app: "bot" | "config-search"): ReleaseSetInput {
     [
       { bytes: readme, mode: 0o644, path: "README.md" },
       { bytes: executable, mode: 0o755, path: `bin/mm-crypto-bot-${app}` },
-      { bytes: text.encode(canonicalJson(manifest)), mode: 0o644, path: "manifest.json" },
+      { bytes: text.encode(canonicalJson(innerManifest)), mode: 0o644, path: "manifest.json" },
     ],
-    manifest.sourceDateEpoch,
+    innerManifest.sourceDateEpoch,
   );
   return {
     application: app,
-    innerManifest: manifest,
+    innerManifest,
     sidecarBytes: text.encode(
       formatSha256Sidecar(sha256Hex(zipBytes), `mm-crypto-bot-${app}-0.1.0-bun-linux-x64.zip`),
     ),
@@ -157,6 +203,18 @@ test("rejects a caller manifest that diverges from its authenticated inner archi
   expect(ledger.mkdtempCalls).toEqual([]);
   expect(ledger.writes).toEqual([]);
   expect(ledger.removals).toEqual([]);
+});
+
+test("rejects an authenticated historic V1 inner archive before candidate I/O", async () => {
+  const ledger = createFileSystemOperationLedger();
+  await expect(
+    Reflect.apply(assembleReleaseSetCandidate, undefined, [
+      dependencies(ledger),
+      [historicInput("bot"), input("config-search")],
+    ]),
+  ).rejects.toThrow("release-set authenticated manifest mismatch");
+  expect(ledger.mkdtempCalls).toEqual([]);
+  expect(ledger.writes).toEqual([]);
 });
 
 test("rejects accessor-backed release-set inputs before reading their mutable values", async () => {

@@ -11,7 +11,7 @@ import {
   sha256Hex,
   type ReleaseApplication as ReleaseApp,
   type ReleaseAssemblyResult,
-  type ReleaseManifestV1,
+  type ReleaseManifestV2,
   type ReleasePayload,
 } from "./release-contract";
 import type { ReleaseBuildIdentity, ReleaseDependencies, ReleasePrivateDirectory } from "./release-ports";
@@ -263,17 +263,17 @@ function assertRootPackagePins(bytes: Uint8Array): void {
     throw new Error("root package.json must be an object");
   }
   if (propertyString(parsed, "packageManager") !== `bun@${requiredBunVersion}`) {
-    throw new Error("root package.json packageManager must pin Bun 1.3.14");
+    throw new Error(`root package.json packageManager must pin Bun ${requiredBunVersion}`);
   }
   const engines = propertyValue(parsed, "engines");
   if (typeof engines !== "object" || engines === null || Array.isArray(engines)) {
     throw new Error("root package.json engines must be an object");
   }
   if (propertyString(engines, "bun") !== requiredBunVersion) {
-    throw new Error("root package.json engines.bun must pin Bun 1.3.14");
+    throw new Error(`root package.json engines.bun must pin Bun ${requiredBunVersion}`);
   }
   if (propertyString(engines, "node") !== requiredNodeMetadataVersion) {
-    throw new Error("root package.json engines.node must pin Node metadata 24.19.0");
+    throw new Error(`root package.json engines.node must pin Node metadata ${requiredNodeMetadataVersion}`);
   }
 }
 
@@ -331,7 +331,7 @@ function manifestFor(
   identity: ReleaseBuildIdentity,
   readmeBytes: Uint8Array,
   executableBytes: Uint8Array,
-): ReleaseManifestV1 {
+): ReleaseManifestV2 {
   const payloads: readonly ReleasePayload[] = [
     Object.freeze({
       bytes: readmeBytes.length,
@@ -356,7 +356,7 @@ function manifestFor(
     }),
     lockfileSha256: identity.lockfileSha256,
     payloads: Object.freeze(payloads),
-    schema: "mm-crypto-bot.release-manifest/v1",
+    schema: "mm-crypto-bot.release-manifest/v2",
     sourceDateEpoch: identity.sourceDateEpoch,
     target: Object.freeze({ arch: "x64", bunTarget: releaseTarget, os: "linux" }),
     toolchain: Object.freeze({ bun: requiredBunVersion, nodeMetadata: requiredNodeMetadataVersion }),

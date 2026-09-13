@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { canonicalJson, formatSha256Sidecar, sha256Hex, type ReleaseManifestV1 } from "./release-contract";
+import { canonicalJson, formatSha256Sidecar, sha256Hex, type ReleaseManifestV2 } from "./release-contract";
 import { type ReleaseSetInput } from "./release-set-contract";
 import { encodeReleaseSetZip } from "./release-set-zip";
 import { verifyReleaseSetArchive } from "./release-set-verifier";
@@ -20,7 +20,7 @@ function crc32(bytes: Uint8Array): number {
 function input(app: "bot" | "config-search"): ReleaseSetInput {
   const readme = text.encode(app);
   const executable = text.encode(`${app}-binary`);
-  const innerManifest: ReleaseManifestV1 = {
+  const innerManifest: ReleaseManifestV2 = {
     app: app,
     commit: "a".repeat(40),
     configuration: { embedded: false, external: true, runtimeRootEnvironment: "MM_CRYPTO_BOT_RUNTIME_ROOT" },
@@ -34,10 +34,10 @@ function input(app: "bot" | "config-search"): ReleaseSetInput {
         sha256: sha256Hex(executable),
       },
     ],
-    schema: "mm-crypto-bot.release-manifest/v1",
+    schema: "mm-crypto-bot.release-manifest/v2",
     sourceDateEpoch: 1_788_199_914,
     target: { arch: "x64", bunTarget: "bun-linux-x64", os: "linux" },
-    toolchain: { bun: "1.3.14", nodeMetadata: "24.19.0" },
+    toolchain: { bun: "1.4.2", nodeMetadata: "24.21.0" },
     version: "0.1.0",
   };
   const zipBytes = encodeStoreZip(
@@ -362,4 +362,26 @@ test("rejects digest, sidecar, descriptor mapping, reversed-manifest, and inner 
   ]) {
     await expect(verifyReleaseSetArchive({ zipBytes })).rejects.toThrow("release-set archive is invalid");
   }
+});
+
+test("parses each exact outer schema generation before rejecting unknown or cross-generation identities", async () => {
+  const current = archive();
+  const legacyOuter = {
+    ...current.manifest,
+    schema: "mm-crypto-bot.release-set-manifest/v1",
+    toolchain: { bun: "1.3.14", nodeMetadata: "24.19.0" },
+  };
+  const unknownOuter = { ...current.manifest, schema: "mm-crypto-bot.release-set-manifest/v3" };
+  const legacyOuterBytes = text.encode(canonicalJson(legacyOuter));
+  const unknownOuterBytes = text.encode(canonicalJson(unknownOuter));
+  await expect(
+    verifyReleaseSetArchive({
+      zipBytes: replaceManifest(current.zipBytes, legacyOuterBytes),
+    }),
+  ).rejects.toThrow("release-set archive is invalid");
+  await expect(
+    verifyReleaseSetArchive({
+      zipBytes: replaceManifest(current.zipBytes, unknownOuterBytes),
+    }),
+  ).rejects.toThrow("release-set archive is invalid");
 });

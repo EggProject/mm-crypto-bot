@@ -3,8 +3,10 @@ import { createHash } from "node:crypto";
 // eslint-disable-next-line unicorn/name-replacements -- public release contract name is specified by the approved design.
 export const releaseApplications = ["bot", "config-search"] as const;
 export const releaseTarget = "bun-linux-x64" as const;
-export const requiredBunVersion = "1.3.14" as const;
-export const requiredNodeMetadataVersion = "24.19.0" as const;
+export const legacyRequiredBunVersion = "1.3.14" as const;
+export const legacyRequiredNodeMetadataVersion = "24.19.0" as const;
+export const requiredBunVersion = "1.4.2" as const;
+export const requiredNodeMetadataVersion = "24.21.0" as const;
 export const releaseVersion = "0.1.0" as const;
 
 // eslint-disable-next-line unicorn/name-replacements -- public release contract name is specified by the approved design.
@@ -18,7 +20,7 @@ export interface ReleasePayload {
   readonly sha256: string;
 }
 
-export interface ReleaseManifestV1 {
+export interface ReleaseManifestBase {
   readonly app: ReleaseApplication;
   readonly commit: string;
   readonly configuration: {
@@ -28,19 +30,32 @@ export interface ReleaseManifestV1 {
   };
   readonly lockfileSha256: string;
   readonly payloads: readonly ReleasePayload[];
-  readonly schema: "mm-crypto-bot.release-manifest/v1";
   readonly sourceDateEpoch: number;
   readonly target: {
     readonly arch: "x64";
     readonly bunTarget: ReleaseTarget;
     readonly os: "linux";
   };
+  readonly version: typeof releaseVersion;
+}
+
+export interface ReleaseManifestV1 extends ReleaseManifestBase {
+  readonly schema: "mm-crypto-bot.release-manifest/v1";
+  readonly toolchain: {
+    readonly bun: typeof legacyRequiredBunVersion;
+    readonly nodeMetadata: typeof legacyRequiredNodeMetadataVersion;
+  };
+}
+
+export interface ReleaseManifestV2 extends ReleaseManifestBase {
+  readonly schema: "mm-crypto-bot.release-manifest/v2";
   readonly toolchain: {
     readonly bun: typeof requiredBunVersion;
     readonly nodeMetadata: typeof requiredNodeMetadataVersion;
   };
-  readonly version: typeof releaseVersion;
 }
+
+export type ReleaseManifest = ReleaseManifestV1 | ReleaseManifestV2;
 
 export interface ReleasePayloadInput {
   readonly bytes: Uint8Array;
@@ -56,7 +71,7 @@ export interface ReleasePrivateCandidate {
 
 export interface ReleaseAssemblyResult {
   readonly candidate: ReleasePrivateCandidate;
-  readonly manifest: ReleaseManifestV1;
+  readonly manifest: ReleaseManifestV2;
 }
 
 export interface ReleaseVerificationInput {
@@ -67,7 +82,7 @@ export interface ReleaseVerificationInput {
 
 export interface ExtractedRelease {
   readonly executablePath: string;
-  readonly manifest: ReleaseManifestV1;
+  readonly manifest: ReleaseManifest;
   readonly rootDirectory: string;
 }
 

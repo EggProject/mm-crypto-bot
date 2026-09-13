@@ -1,8 +1,11 @@
 import { expect, test } from "vitest";
 
 import { fixture } from "./release-assembler.test-support";
+import { canonicalJson, formatSha256Sidecar, sha256Hex, type ReleaseManifestV1 } from "./release-contract";
 import { releaseSetArchiveBasename } from "./release-set-contract";
 import { assertReproducibleReleaseSet } from "./release-set-reproducibility";
+import { parseStoreZip } from "./zip-store";
+import { encodeStoreZip } from "./zip-store-encoder";
 
 const botHelp =
   "mm-crypto-bot command-line interface\n\nUsage: bun run apps/bot/src/index.ts <subcommand> [options]\n\nSubcommands:\n  backtest              Run a quick backtest on a deterministic OHLC fixture\n  config                Validate / show / init the bot config\n  help                  Show this help\n  kill-switch-dry-run   Simulate the kill-switch path without sending any orders\n  kill-switches         Show kill-switch state\n  start                 Start the bot (headless — runs until SIGINT/SIGTERM)\n  status                Show the persisted bot state\n  strategies            List registered strategies + on/off state\n  trades                Show recent closed trades\n\nRun `bun run apps/bot/src/index.ts <subcommand> --help` for subcommand-specific options.\n";
@@ -108,4 +111,74 @@ test("removes the first candidate when its independent verification fails before
   ).rejects.toThrow("release private candidate reproducibility verification failed");
   expect(current.compilerCalls).toHaveLength(1);
   expect(current.fileSystem.removedDirectories).toHaveLength(1);
+});
+
+test("rejects a hostile historic V1 verification result before a second build, smoke, or publication", async () => {
+  const current = fixture();
+  const read = current.fileSystem.readFile.bind(current.fileSystem);
+  let historicZip: Uint8Array | undefined;
+  current.fileSystem.readFile = async (name) => {
+    if (historicZip !== undefined && name.endsWith(".sha256"))
+      return new TextEncoder().encode(
+        formatSha256Sidecar(sha256Hex(historicZip), "mm-crypto-bot-bot-0.1.0-bun-linux-x64.zip"),
+      );
+    const bytes = await read(name);
+    if (!name.endsWith(".zip")) return bytes;
+    const entries = parseStoreZip(bytes).entries;
+    const readme = entries.find((entry) => entry.path === "README.md");
+    const executable = entries.find((entry) => entry.path === "bin/mm-crypto-bot-bot");
+    if (readme === undefined || executable === undefined) throw new Error("fixture archive layout changed");
+    const manifest: ReleaseManifestV1 = {
+      app: "bot",
+      commit: "a".repeat(40),
+      configuration: {
+        embedded: false,
+        external: true,
+        runtimeRootEnvironment: "MM_CRYPTO_BOT_RUNTIME_ROOT",
+      },
+      lockfileSha256: "b".repeat(64),
+      payloads: [
+        { bytes: readme.bytes.length, mode: "0644", path: "README.md", sha256: sha256Hex(readme.bytes) },
+        {
+          bytes: executable.bytes.length,
+          mode: "0755",
+          path: "bin/mm-crypto-bot-bot",
+          sha256: sha256Hex(executable.bytes),
+        },
+      ],
+      schema: "mm-crypto-bot.release-manifest/v1",
+      sourceDateEpoch: 1_788_199_914,
+      target: { arch: "x64", bunTarget: "bun-linux-x64", os: "linux" },
+      toolchain: { bun: "1.3.14", nodeMetadata: "24.19.0" },
+      version: "0.1.0",
+    };
+    historicZip = encodeStoreZip(
+      [
+        { bytes: readme.bytes, mode: 0o644, path: "README.md" },
+        { bytes: executable.bytes, mode: 0o755, path: "bin/mm-crypto-bot-bot" },
+        { bytes: new TextEncoder().encode(canonicalJson(manifest)), mode: 0o644, path: "manifest.json" },
+      ],
+      manifest.sourceDateEpoch,
+    );
+    return historicZip;
+  };
+  const links: string[] = [];
+  await expect(
+    assertReproducibleReleaseSet({
+      publicationDependencies: {
+        privateCandidateFileSystem: current.fileSystem,
+        publicationFileSystem: {
+          link: (): Promise<void> => {
+            links.push("link");
+            return Promise.resolve();
+          },
+        },
+      },
+      publicationRoot: "/trusted-publication",
+      releaseDependencies: current.dependencies,
+    }),
+  ).rejects.toThrow("release-set reproducibility mismatch");
+  expect(current.compilerCalls).toHaveLength(1);
+  expect(current.fileSystem.processOperations).toEqual([]);
+  expect(links).toEqual([]);
 });

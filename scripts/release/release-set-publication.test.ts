@@ -3,7 +3,7 @@ import { link as linkFile, lstat, mkdtemp, readFile, rm, writeFile } from "node:
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { canonicalJson, formatSha256Sidecar, sha256Hex, type ReleaseManifestV1 } from "./release-contract";
+import { canonicalJson, formatSha256Sidecar, sha256Hex, type ReleaseManifestV2 } from "./release-contract";
 import {
   releaseSetArchiveBasename,
   releaseSetCandidatePrefix,
@@ -29,7 +29,7 @@ const disk = Object.freeze({ lstat, mkdtemp, readFile, removeDirectory: rm, writ
 function input(app: "bot" | "config-search"): ReleaseSetInput {
   const readme = text.encode(app);
   const executable = text.encode(`${app}-binary`);
-  const innerManifest: ReleaseManifestV1 = {
+  const innerManifest: ReleaseManifestV2 = {
     app: app,
     commit: "a".repeat(40),
     configuration: { embedded: false, external: true, runtimeRootEnvironment: "MM_CRYPTO_BOT_RUNTIME_ROOT" },
@@ -43,10 +43,10 @@ function input(app: "bot" | "config-search"): ReleaseSetInput {
         sha256: sha256Hex(executable),
       },
     ],
-    schema: "mm-crypto-bot.release-manifest/v1",
+    schema: "mm-crypto-bot.release-manifest/v2",
     sourceDateEpoch: 1_788_199_914,
     target: { arch: "x64", bunTarget: "bun-linux-x64", os: "linux" },
-    toolchain: { bun: "1.3.14", nodeMetadata: "24.19.0" },
+    toolchain: { bun: "1.4.2", nodeMetadata: "24.21.0" },
     version: "0.1.0",
   };
   const zipBytes = encodeStoreZip(

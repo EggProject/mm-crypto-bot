@@ -90,6 +90,29 @@ test("fails every global and app precondition before compiler activity", async (
   }
 });
 
+test("rejects missing and drifted root engine pins before compiler activity", async () => {
+  // Catches accepting absent or noncanonical V2 runtime metadata.
+  for (const { packageBytes, message } of [
+    {
+      message: "root package.json engines must be an object",
+      packageBytes: new TextEncoder().encode('{"packageManager":"bun@1.4.2"}\n'),
+    },
+    {
+      message: "root package.json engines.bun must pin Bun 1.4.2",
+      packageBytes: rootPackageBytes("bun@1.4.2", "1.4.1", "24.21.0"),
+    },
+    {
+      message: "root package.json engines.node must pin Node metadata 24.21.0",
+      packageBytes: rootPackageBytes("bun@1.4.2", "1.4.2", "24.21.1"),
+    },
+  ]) {
+    const current = fixture();
+    current.fileSystem.addFile(`${repoRoot}/package.json`, packageBytes);
+    await expect(assembleRelease(current.dependencies, "bot")).rejects.toThrow(message);
+    expect(current.compilerCalls).toEqual([]);
+  }
+});
+
 test("rejects every post-mkdtemp output failure and deletes only proven owned directories", async () => {
   // Catches unremoved partial candidates and trusting hostile directory return values.
   for (const kind of ["missing", "directory", "symbolic-link"] as const) {

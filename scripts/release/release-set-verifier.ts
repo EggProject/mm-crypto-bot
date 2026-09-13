@@ -1,8 +1,17 @@
-import { canonicalJson, parseSha256Sidecar, sha256Hex, type ReleaseManifestV1 } from "./release-contract";
 import {
-  canonicalReleaseSetManifestBytes,
+  canonicalJson,
+  legacyRequiredBunVersion,
+  legacyRequiredNodeMetadataVersion,
+  parseSha256Sidecar,
+  requiredBunVersion,
+  requiredNodeMetadataVersion,
+  sha256Hex,
+  type ReleaseManifest,
+} from "./release-contract";
+import {
+  releaseSetManifestGeneration,
   type ReleaseSetAppRecord,
-  type ReleaseSetManifestV1,
+  type ReleaseSetManifest,
   type VerifiedReleaseSetArchive,
 } from "./release-set-contract";
 import { verifyReleaseArchive } from "./release-verifier";
@@ -19,6 +28,20 @@ const centralSignature = 0x02_01_4b_50;
 const endSignature = 0x06_05_4b_50;
 const localSignature = 0x04_03_4b_50;
 const expectedAttributes = (0o10_0644 << 16) >>> 0;
+const manifestKeys = [
+  "applications",
+  "commit",
+  "lockfileSha256",
+  "schema",
+  "sourceDateEpoch",
+  "target",
+  "toolchain",
+  "version",
+];
+const appKeys = ["app", "sidecar", "zip"];
+const descriptorKeys = ["bytes", "path", "sha256"];
+const targetKeys = ["arch", "bunTarget", "os"];
+const toolchainKeys = ["bun", "nodeMetadata"];
 
 export async function verifyReleaseSetArchive(input: {
   readonly zipBytes: Uint8Array;
@@ -33,8 +56,6 @@ export async function verifyReleaseSetArchive(input: {
     const raw = JSON.parse(decoder.decode(manifestEntry.bytes)) as unknown;
     if (canonicalJson(raw) !== decoder.decode(manifestEntry.bytes)) throw new Error("canonical");
     const manifest = validateManifest(raw);
-    const canonical = canonicalReleaseSetManifestBytes(manifest);
-    if (!isSameBytes(canonical, manifestEntry.bytes)) throw new Error("manifest");
     const epoch = dos(manifest.sourceDateEpoch);
     if (
       entries.some(
@@ -46,7 +67,7 @@ export async function verifyReleaseSetArchive(input: {
       )
     )
       throw new Error("timestamp");
-    const inner: ReleaseManifestV1[] = [];
+    const inner: ReleaseManifest[] = [];
     for (const record of manifest.applications) {
       const zip = entries.find((entry) => entry.path === record.zip.path);
       const sidecar = entries.find((entry) => entry.path === record.sidecar.path);
@@ -206,10 +227,10 @@ function crc32(bytes: Uint8Array): number {
   }
   return (value ^ 0xff_ff_ff_ff) >>> 0;
 }
-function validateManifest(value: unknown): ReleaseSetManifestV1 {
+function validateManifest(value: unknown): ReleaseSetManifest {
   if (
     !isRecord(value) ||
-    value["schema"] !== "mm-crypto-bot.release-set-manifest/v1" ||
+    !hasExactDataKeys(value, manifestKeys) ||
     value["version"] !== "0.1.0" ||
     !Array.isArray(value["applications"]) ||
     value["applications"].length !== 2 ||
@@ -217,7 +238,15 @@ function validateManifest(value: unknown): ReleaseSetManifestV1 {
     typeof value["lockfileSha256"] !== "string" ||
     typeof value["sourceDateEpoch"] !== "number" ||
     !isRecord(value["target"]) ||
-    !isRecord(value["toolchain"])
+    !hasExactDataKeys(value["target"], targetKeys) ||
+    !isRecord(value["toolchain"]) ||
+    !hasExactDataKeys(value["toolchain"], toolchainKeys)
+  )
+    throw new Error("manifest");
+  const schema = value["schema"];
+  if (
+    schema !== "mm-crypto-bot.release-set-manifest/v1" &&
+    schema !== "mm-crypto-bot.release-set-manifest/v2"
   )
     throw new Error("manifest");
   const apps = value["applications"];
@@ -225,12 +254,16 @@ function validateManifest(value: unknown): ReleaseSetManifestV1 {
   const search = app(apps[1], "config-search");
   const target = value["target"];
   const toolchain = value["toolchain"];
+  const expectedToolchain =
+    schema === "mm-crypto-bot.release-set-manifest/v1"
+      ? { bun: legacyRequiredBunVersion, nodeMetadata: legacyRequiredNodeMetadataVersion }
+      : { bun: requiredBunVersion, nodeMetadata: requiredNodeMetadataVersion };
   if (
     target["arch"] !== "x64" ||
     target["bunTarget"] !== "bun-linux-x64" ||
     target["os"] !== "linux" ||
-    toolchain["bun"] !== "1.3.14" ||
-    toolchain["nodeMetadata"] !== "24.19.0" ||
+    toolchain["bun"] !== expectedToolchain.bun ||
+    toolchain["nodeMetadata"] !== expectedToolchain.nodeMetadata ||
     !Number.isSafeInteger(value["sourceDateEpoch"])
   )
     throw new Error("manifest");
@@ -238,19 +271,36 @@ function validateManifest(value: unknown): ReleaseSetManifestV1 {
     bot,
     search,
   ];
-  return Object.freeze({
+  const base = {
     applications: Object.freeze(canonicalApps),
     commit: value["commit"],
     lockfileSha256: value["lockfileSha256"],
-    schema: "mm-crypto-bot.release-set-manifest/v1",
     sourceDateEpoch: value["sourceDateEpoch"],
-    target: Object.freeze({ arch: "x64", bunTarget: "bun-linux-x64", os: "linux" }),
-    toolchain: Object.freeze({ bun: "1.3.14", nodeMetadata: "24.19.0" }),
-    version: "0.1.0",
+    target: Object.freeze({
+      arch: "x64" as const,
+      bunTarget: "bun-linux-x64" as const,
+      os: "linux" as const,
+    }),
+    version: "0.1.0" as const,
+  };
+  if (schema === "mm-crypto-bot.release-set-manifest/v1")
+    return Object.freeze({
+      ...base,
+      schema,
+      toolchain: Object.freeze({
+        bun: legacyRequiredBunVersion,
+        nodeMetadata: legacyRequiredNodeMetadataVersion,
+      }),
+    });
+  return Object.freeze({
+    ...base,
+    schema,
+    toolchain: Object.freeze({ bun: requiredBunVersion, nodeMetadata: requiredNodeMetadataVersion }),
   });
 }
 function app<TApp extends "bot" | "config-search">(value: unknown, app_: TApp): ReleaseSetAppRecord<TApp> {
-  if (!isRecord(value) || value["app"] !== app_) throw new Error("manifest");
+  if (!isRecord(value) || !hasExactDataKeys(value, appKeys) || value["app"] !== app_)
+    throw new Error("manifest");
   return Object.freeze({
     app: app_,
     sidecar: descriptor(value["sidecar"]),
@@ -260,6 +310,7 @@ function app<TApp extends "bot" | "config-search">(value: unknown, app_: TApp): 
 function descriptor(value: unknown): Readonly<{ bytes: number; path: string; sha256: string }> {
   if (
     !isRecord(value) ||
+    !hasExactDataKeys(value, descriptorKeys) ||
     typeof value["bytes"] !== "number" ||
     !Number.isSafeInteger(value["bytes"]) ||
     value["bytes"] < 0 ||
@@ -273,6 +324,10 @@ function descriptor(value: unknown): Readonly<{ bytes: number; path: string; sha
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+function hasExactDataKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
+  const keys = Object.keys(value);
+  return keys.length === expected.length && keys.every((key) => expected.includes(key));
+}
 function isSameBytes(a: Uint8Array, b: Uint8Array): boolean {
   return a.length === b.length && a.every((byte, index) => byte === b.at(index));
 }
@@ -284,15 +339,26 @@ function dos(epoch: number): { date: number; time: number } {
     time: (d.getUTCHours() << 11) | (d.getUTCMinutes() << 5) | (d.getUTCSeconds() >> 1),
   };
 }
-function hasSameIdentity(set: ReleaseSetManifestV1, inner: readonly ReleaseManifestV1[]): boolean {
-  return (
-    inner.length === 2 &&
-    inner.every(
-      (manifest, index) =>
-        manifest.app === set.applications.at(index)?.app &&
-        manifest.commit === set.commit &&
-        manifest.lockfileSha256 === set.lockfileSha256 &&
-        manifest.sourceDateEpoch === set.sourceDateEpoch,
-    )
-  );
+function hasSameIdentity(set: ReleaseSetManifest, inner: readonly ReleaseManifest[]): boolean {
+  try {
+    return (
+      inner.length === 2 &&
+      inner.every((manifest, index) => {
+        const appRecord = set.applications.at(index);
+        return (
+          appRecord !== undefined &&
+          releaseSetManifestGeneration(set.schema, manifest.schema) ===
+            releaseSetManifestGeneration(set.schema, inner[0]?.schema) &&
+          manifest.app === appRecord.app &&
+          manifest.commit === set.commit &&
+          manifest.lockfileSha256 === set.lockfileSha256 &&
+          manifest.sourceDateEpoch === set.sourceDateEpoch &&
+          canonicalJson(manifest.target) === canonicalJson(set.target) &&
+          canonicalJson(manifest.toolchain) === canonicalJson(set.toolchain)
+        );
+      })
+    );
+  } catch {
+    return false;
+  }
 }

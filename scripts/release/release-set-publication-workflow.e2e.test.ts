@@ -133,10 +133,10 @@ class WorkflowWorkspace {
     await Promise.all([
       disk.writeFile(
         path.join(repoRoot, "package.json"),
-        '{"engines":{"bun":"1.3.14","node":"24.19.0"},"packageManager":"bun@1.3.14"}\n',
+        '{"engines":{"bun":"1.4.2","node":"24.21.0"},"packageManager":"bun@1.4.2"}\n',
       ),
-      disk.writeFile(path.join(repoRoot, ".bun-version"), "1.3.14\n"),
-      disk.writeFile(path.join(repoRoot, ".nvmrc"), "24.19.0\n"),
+      disk.writeFile(path.join(repoRoot, ".bun-version"), "1.4.2\n"),
+      disk.writeFile(path.join(repoRoot, ".nvmrc"), "24.21.0\n"),
       disk.writeFile(path.join(repoRoot, "bun.lock"), "lockfile\n"),
       disk.writeFile(path.join(repoRoot, "apps", "bot", "package.json"), '{"version":"0.1.0"}\n'),
       disk.writeFile(path.join(repoRoot, "apps", "bot", "src", "index.ts"), "entrypoint\n"),
@@ -216,8 +216,8 @@ function dependencies(
     repositoryRoot: workspace.repoRoot,
     temporaryRoot: workspace.privateRoot,
     toolchain: {
-      bunVersion: (): Promise<string> => Promise.resolve("1.3.14"),
-      nodeVersion: (): Promise<string> => Promise.resolve("v24.19.0"),
+      bunVersion: (): Promise<string> => Promise.resolve("1.4.2"),
+      nodeVersion: (): Promise<string> => Promise.resolve("v24.21.0"),
     },
   };
   const queueSmoke = (): void => {
@@ -265,6 +265,8 @@ async function makeOuterCandidate(
       const assembled = await assembleRelease(current.dependencies, app);
       candidates.push(assembled.candidate.directory);
       const verified = await verifyPrivateReleaseCandidate(current.dependencies, assembled.candidate);
+      if (verified.manifest.schema !== "mm-crypto-bot.release-manifest/v2")
+        throw new Error("release-set fixture requires V2 release manifests");
       inputs.push({
         application: app,
         innerManifest: verified.manifest,

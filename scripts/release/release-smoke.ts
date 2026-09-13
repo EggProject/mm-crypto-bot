@@ -1,6 +1,16 @@
 import path from "node:path";
 
-import type { ExtractedRelease, ReleaseManifestV1, ReleasePrivateCandidate } from "./release-contract";
+import {
+  legacyRequiredBunVersion,
+  legacyRequiredNodeMetadataVersion,
+  requiredBunVersion,
+  requiredNodeMetadataVersion,
+  type ExtractedRelease,
+  type ReleaseManifest,
+  type ReleaseManifestV1,
+  type ReleaseManifestV2,
+  type ReleasePrivateCandidate,
+} from "./release-contract";
 import type { ReleaseCommandResult, ReleaseDependencies, ReleasePrivateDirectory } from "./release-ports";
 import { verifyReleaseArchive } from "./release-verifier";
 import { parseStoreZip } from "./zip-store";
@@ -35,7 +45,7 @@ interface CandidatePaths {
 }
 
 export interface VerifiedPrivateCandidateArchive {
-  readonly manifest: ReleaseManifestV1;
+  readonly manifest: ReleaseManifest;
   readonly sidecarBytes: Uint8Array;
   readonly zipBytes: Uint8Array;
 }
@@ -133,7 +143,7 @@ function validateCandidate(temporaryRoot: string, value: unknown): CandidatePath
 
 async function writeExtraction(
   dependencies: ReleaseDependencies,
-  manifest: ReleaseManifestV1,
+  manifest: ReleaseManifest,
   readme: Uint8Array,
   manifestBytes: Uint8Array,
   executable: Uint8Array,
@@ -273,35 +283,47 @@ async function removeExtraction(dependencies: ReleaseDependencies, rootDirectory
 
 function freezeExtractedRelease(
   executablePath: string,
-  manifest: ReleaseManifestV1,
+  manifest: ReleaseManifest,
   rootDirectory: string,
 ): ExtractedRelease {
   return Object.freeze({
     executablePath,
-    manifest: Object.freeze({
-      ...manifest,
-      configuration: Object.freeze({ ...manifest.configuration }),
-      payloads: freezePayloads(manifest.payloads),
-      target: Object.freeze({ ...manifest.target }),
-      toolchain: Object.freeze({ ...manifest.toolchain }),
-    }),
+    manifest: freezeManifest(manifest),
     rootDirectory,
   });
 }
 
-function freezeManifest(manifest: ReleaseManifestV1): ReleaseManifestV1 {
+function freezeManifest(manifest: ReleaseManifest): ReleaseManifest {
+  if (manifest.schema === "mm-crypto-bot.release-manifest/v1") return freezeManifestV1(manifest);
+  return freezeManifestV2(manifest);
+}
+
+function freezeManifestV1(manifest: ReleaseManifestV1): ReleaseManifestV1 {
   return Object.freeze({
     ...manifest,
     configuration: Object.freeze({ ...manifest.configuration }),
     payloads: freezePayloads(manifest.payloads),
     target: Object.freeze({ ...manifest.target }),
-    toolchain: Object.freeze({ ...manifest.toolchain }),
+    toolchain: Object.freeze({
+      bun: legacyRequiredBunVersion,
+      nodeMetadata: legacyRequiredNodeMetadataVersion,
+    }),
+  });
+}
+
+function freezeManifestV2(manifest: ReleaseManifestV2): ReleaseManifestV2 {
+  return Object.freeze({
+    ...manifest,
+    configuration: Object.freeze({ ...manifest.configuration }),
+    payloads: freezePayloads(manifest.payloads),
+    target: Object.freeze({ ...manifest.target }),
+    toolchain: Object.freeze({ bun: requiredBunVersion, nodeMetadata: requiredNodeMetadataVersion }),
   });
 }
 
 function freezePayloads(
-  payloads: ReleaseManifestV1["payloads"],
-): readonly ReleaseManifestV1["payloads"][number][] {
+  payloads: ReleaseManifest["payloads"],
+): readonly ReleaseManifest["payloads"][number][] {
   return Object.freeze(payloads.map((payload) => Object.freeze({ ...payload })));
 }
 

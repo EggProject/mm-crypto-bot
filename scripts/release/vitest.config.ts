@@ -25,6 +25,7 @@ export default defineConfig({
         "release-set-publication.ts",
         "release-set-reproducibility.ts",
         "release-ports.ts",
+        "release-coverage-node-gate.ts",
       ],
       exclude: ["*.test.ts", "*.e2e.test.ts"],
       reporter: ["text", "json-summary", "lcov"],
