@@ -381,9 +381,9 @@ test("Node adapter uses fixed report readers and sanitized environment", async (
   await invokeReader(dependencies.readE2eLcov);
 });
 test("sealed release child runner accepts only approved coverage tags", async () => {
-  const levels: string[] = [];
-  const runner = createNodeReleaseCoverageGateRunner((level) => {
-    levels.push(level);
+  const calls: { readonly level: string; readonly repoRoot_: string }[] = [];
+  const runner = createNodeReleaseCoverageGateRunner((level, _environment, repoRoot_) => {
+    calls.push({ level, repoRoot_ });
     return Promise.resolve();
   });
   await expect(runner({ argv: ["unknown"], cwd: repoRoot, env: {} })).rejects.toThrow(
@@ -397,7 +397,10 @@ test("sealed release child runner accepts only approved coverage tags", async ()
     signal: undefined,
     status: 0,
   });
-  expect(levels).toEqual(["unit", "e2e"]);
+  expect(calls).toEqual([
+    { level: "unit", repoRoot_: repoRoot },
+    { level: "e2e", repoRoot_: repoRoot },
+  ]);
   expect(typeof createNodeReleaseCoverageGateRunner()).toBe("function");
 });
 async function invokeReader(reader: () => Promise<string>): Promise<void> {

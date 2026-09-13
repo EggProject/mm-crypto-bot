@@ -33,6 +33,7 @@ export interface ReleaseCoverageEntrypointDependencies {
 export type ReleaseCoverageNodeGateRunner = (
   level: CoverageLevel,
   environment: Readonly<Record<string, string>>,
+  expectedRepoRoot: string,
 ) => Promise<void>;
 
 const metricNames = ["statements", "branches", "functions", "lines"] as const;
@@ -141,7 +142,7 @@ export function createNodeReleaseCoverageGateRunner(
     if (gate !== "release-coverage-unit" && gate !== "release-coverage-e2e") {
       throw new Error("invalid coverage child command");
     }
-    await runGate(gate === "release-coverage-unit" ? "unit" : "e2e", input.env);
+    await runGate(gate === "release-coverage-unit" ? "unit" : "e2e", input.env, input.cwd);
     return Object.freeze({ signal: undefined, status: 0 });
   };
 }

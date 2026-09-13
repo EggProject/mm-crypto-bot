@@ -24,15 +24,18 @@ const test = importedTestRuntime.test.bind(importedTestRuntime);
 
 import { runReleaseCoverageNodeGate } from "./release-coverage-node-gate";
 
-test("maps release coverage levels to sealed Node gates", async () => {
-  const gates: string[] = [];
-  await runReleaseCoverageNodeGate("unit", {}, (_environment, gate) => {
-    gates.push(gate);
+test("maps levels and forwards the fixed repository root to sealed Node gates", async () => {
+  const calls: { readonly gate: string; readonly repoRoot: string }[] = [];
+  await runReleaseCoverageNodeGate("unit", {}, "/repo", (_environment, gate, repoRoot) => {
+    calls.push({ gate, repoRoot });
     return Promise.resolve();
   });
-  await runReleaseCoverageNodeGate("e2e", {}, (_environment, gate) => {
-    gates.push(gate);
+  await runReleaseCoverageNodeGate("e2e", {}, "/repo", (_environment, gate, repoRoot) => {
+    calls.push({ gate, repoRoot });
     return Promise.resolve();
   });
-  expect(gates).toEqual(["release-coverage-unit", "release-coverage-e2e"]);
+  expect(calls).toEqual([
+    { gate: "release-coverage-unit", repoRoot: "/repo" },
+    { gate: "release-coverage-e2e", repoRoot: "/repo" },
+  ]);
 });

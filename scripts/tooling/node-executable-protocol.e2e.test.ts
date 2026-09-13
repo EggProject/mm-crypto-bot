@@ -65,6 +65,17 @@ function localEnvironment(): Readonly<Record<string, string>> {
   });
 }
 
+function publicScriptEnvironment(): Readonly<Record<string, string>> {
+  const {
+    MM_CRYPTO_BOT_NODE_EXECUTABLE: _nodeExecutable,
+    MM_CRYPTO_BOT_NODE_PROVENANCE: _nodeProvenance,
+    NODE_OPTIONS: _nodeOptions,
+    NODE_PATH: _nodePath,
+    ...environment
+  } = process.env;
+  return Object.freeze({ ...environment, NVM_BIN: nvmBin, NVM_DIR: nvmDirectory });
+}
+
 test("public runtime entrypoints validate a real staged Git path through verified NVM Node", async () => {
   const temporaryRepo = await createTemporaryGitRepo();
   await inTemporaryRepo(temporaryRepo, async () => {
@@ -225,5 +236,30 @@ test("public entrypoints reject missing provenance paths and skip lint when a re
     await expect(
       stagedFileValidation.runStagedFileValidationEntrypoint(["--mode=lint"], markdownLintExitCode, true),
     ).resolves.toBe(0);
+  });
+});
+
+test("public release coverage scripts establish local NVM provenance without ambient MM variables", async () => {
+  for (const script of ["coverage:release:unit", "coverage:release:e2e", "coverage:release"] as const) {
+    await executeFile("bun", ["run", script], { cwd: repoRoot, env: publicScriptEnvironment() });
+  }
+}, 30_000);
+
+test("public protocol runtime rejects hostile Node environment and foreign expected repository cwd", async () => {
+  const temporaryRepo = await createTemporaryGitRepo();
+  await inTemporaryRepo(temporaryRepo, async () => {
+    const { protocol } = await loadProductionEntrypoints();
+    const hostileExitCode = { exitCode: undefined as number | undefined };
+    await expect(
+      protocol.runVerifiedNodeGateEntrypoint(
+        ["--gate=staged-eslint"],
+        { ...localEnvironment(), NODE_OPTIONS: "" },
+        hostileExitCode,
+        true,
+      ),
+    ).resolves.toBe(1);
+    await expect(protocol.runVerifiedNodeGate(localEnvironment(), "staged-eslint", repoRoot)).rejects.toThrow(
+      "unverified Node executable",
+    );
   });
 });

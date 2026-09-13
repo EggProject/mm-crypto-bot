@@ -9,12 +9,15 @@ and Node `24.21.0`; this supersedes the prior runtime pins for new output. The r
 Locally, start Node only through nvm:
 
 ```sh
-source /home/eggp/.nvm/nvm.sh
+: "${NVM_DIR:?NVM_DIR must name the nvm installation}"
+source "$NVM_DIR/nvm.sh"
 nvm exec 24.21.0 node --version
 ```
 
 Do not install Node system-wide. GitHub Actions is the limited CI provisioning
-exception: it uses the pinned `actions/setup-node` action and reads `.nvmrc`.
+exception: it currently uses the mutable `actions/setup-node@v4` major tag and
+reads `.nvmrc`. Pinning that action immutably requires a separately owned CI
+change.
 
 ## Release Manifest Compatibility
 

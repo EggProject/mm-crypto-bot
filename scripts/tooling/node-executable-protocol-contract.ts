@@ -124,6 +124,12 @@ export function assertNodeVersion(observedVersion: string): void {
   if (observedVersion !== "v24.21.0") throw new Error("unverified Node executable");
 }
 
+export function assertSafeNodeEnvironment(environment: Readonly<Record<string, string | undefined>>): void {
+  if (Object.hasOwn(environment, "NODE_OPTIONS") || Object.hasOwn(environment, "NODE_PATH")) {
+    throw new Error("unverified Node environment");
+  }
+}
+
 function assertSuccessfulProcess(observation: RawProcessObservation, message: string): void {
   if (observation.error !== undefined || Boolean(observation.signal) || observation.status !== 0) {
     throw new Error(message);

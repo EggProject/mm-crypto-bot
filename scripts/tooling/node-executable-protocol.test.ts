@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 
 import {
+  assertSafeNodeEnvironment,
   assertNodeVersion,
   isNodeGate,
   nodeGateArguments,
@@ -94,4 +95,20 @@ test("classifies raw verified Node output and exact version without runtime depe
   expect(() => {
     assertNodeVersion("v24.21.0");
   }).not.toThrow();
+});
+
+test("rejects NODE_OPTIONS and NODE_PATH whenever either is present", () => {
+  expect(() => {
+    assertSafeNodeEnvironment({});
+  }).not.toThrow();
+  for (const environment of [
+    { NODE_OPTIONS: "" },
+    { NODE_OPTIONS: "--require=untrusted" },
+    { NODE_PATH: "" },
+    { NODE_PATH: "/untrusted/modules" },
+  ]) {
+    expect(() => {
+      assertSafeNodeEnvironment(environment);
+    }).toThrow("unverified Node environment");
+  }
 });

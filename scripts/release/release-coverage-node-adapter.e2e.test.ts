@@ -35,7 +35,7 @@ describe("release coverage verified Node adapter", () => {
   test("maps both release levels through the sealed protocol boundary", async () => {
     const gates: string[] = [];
     for (const level of ["unit", "e2e"] as const) {
-      await runReleaseCoverageNodeGate(level, {}, (_environment, gate) => {
+      await runReleaseCoverageNodeGate(level, {}, "/repo", (_environment, gate) => {
         gates.push(gate);
         return Promise.resolve();
       });

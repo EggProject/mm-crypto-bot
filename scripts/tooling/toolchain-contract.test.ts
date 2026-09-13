@@ -125,12 +125,14 @@ test("root release coverage consumers use the exact publication-independent comm
   }
 
   expect(manifest["scripts"]["coverage:release:unit"]).toBe(
-    "bun scripts/release/release-coverage.ts --level=unit",
+    'MM_CRYPTO_BOT_NODE_EXECUTABLE="$NVM_BIN/node" MM_CRYPTO_BOT_NODE_PROVENANCE=local bun scripts/release/release-coverage.ts --level=unit',
   );
   expect(manifest["scripts"]["coverage:release:e2e"]).toBe(
-    "bun scripts/release/release-coverage.ts --level=e2e",
+    'MM_CRYPTO_BOT_NODE_EXECUTABLE="$NVM_BIN/node" MM_CRYPTO_BOT_NODE_PROVENANCE=local bun scripts/release/release-coverage.ts --level=e2e',
   );
-  expect(manifest["scripts"]["coverage:release"]).toBe("bun scripts/release/release-coverage.ts --level=all");
+  expect(manifest["scripts"]["coverage:release"]).toBe(
+    'MM_CRYPTO_BOT_NODE_EXECUTABLE="$NVM_BIN/node" MM_CRYPTO_BOT_NODE_PROVENANCE=local bun scripts/release/release-coverage.ts --level=all',
+  );
 });
 
 test("Slice A maps the approved hook integration and formatting contract", async () => {

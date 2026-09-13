@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 import {
+  assertSafeNodeEnvironment,
   assertNodeVersion,
   nodeGateArguments,
   parseNodeGateArguments,
@@ -59,6 +60,13 @@ async function verifiedExecutable(environment: Environment): Promise<string> {
   throw new Error("unverified Node executable");
 }
 
+async function verifiedWorkingDirectory(expectedRepoRoot: string): Promise<string> {
+  const expected = await safeRealpath(requiredAbsolute(expectedRepoRoot));
+  const ambient = await safeRealpath(process.cwd());
+  if (ambient !== expected) throw new Error("unverified Node executable");
+  return expected;
+}
+
 function observeNode(
   executable: string,
   argv: readonly string[],
@@ -79,8 +87,13 @@ function observeNode(
   });
 }
 
-export async function runVerifiedNodeGate(environment: Environment, gate: NodeGate): Promise<void> {
-  const cwd = await safeRealpath(process.cwd());
+export async function runVerifiedNodeGate(
+  environment: Environment,
+  gate: NodeGate,
+  expectedRepoRoot: string,
+): Promise<void> {
+  assertSafeNodeEnvironment(environment);
+  const cwd = await verifiedWorkingDirectory(expectedRepoRoot);
   const executable = await verifiedExecutable(environment);
   assertNodeVersion(verifiedNodeOutput(observeNode(executable, ["--version"], cwd, environment), true));
   verifiedNodeOutput(observeNode(executable, nodeGateArguments(gate), cwd, environment), false);
@@ -94,7 +107,7 @@ export async function runVerifiedNodeGateEntrypoint(
 ): Promise<string | number | null | undefined> {
   if (!isMain) return exitCodeTarget.exitCode;
   try {
-    await runVerifiedNodeGate(environment, parseNodeGateArguments(argv));
+    await runVerifiedNodeGate(environment, parseNodeGateArguments(argv), process.cwd());
     exitCodeTarget.exitCode = 0;
   } catch {
     exitCodeTarget.exitCode = 1;
